@@ -6,11 +6,11 @@ import pytest
 from click.testing import CliRunner
 from fastmcp import Client
 
-from helios_mcp.cli import main
-from helios_mcp.security import SecurityError
-from helios_mcp.server import create_server
-from helios_mcp.service import HeliosService
-from helios_mcp.store import TurnObservation
+from panmind.cli import main
+from panmind.security import SecurityError
+from panmind.server import create_server
+from panmind.service import PanMindService
+from panmind.store import TurnObservation
 
 DIM = "communication_register"
 
@@ -30,7 +30,7 @@ async def call(client, tool, **args):
 
 async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
     mcp = await create_server(tmp_path)
-    HeliosService(tmp_path).record(terse_turns(60), "developer")
+    PanMindService(tmp_path).record(terse_turns(60), "developer")
     rendered = tmp_path / "rendered" / "developer.md"
     before = rendered.read_text()
 
@@ -68,8 +68,8 @@ async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
     ("negotiate_update", {"proposal_id": "x", "decision": "accept"}),
 ])
 async def test_every_persona_tool_rejects_traversal(tmp_path, tool, args):
-    helios = tmp_path / "helios"
-    mcp = await create_server(helios)
+    panmind = tmp_path / "panmind"
+    mcp = await create_server(panmind)
     async with Client(mcp) as client:
         result = await call(client, tool, persona_name="../../escape", **args)
     assert result["status"] == "error"
@@ -78,24 +78,24 @@ async def test_every_persona_tool_rejects_traversal(tmp_path, tool, args):
 
 
 def test_observation_count_counts_turns_not_label_rows(tmp_path):
-    service = HeliosService(tmp_path)
+    service = PanMindService(tmp_path)
     heuristic = terse_turns(1)[0]
     service.record([heuristic, replace(heuristic, source="llm")], "developer")
     assert service.context("developer")["observation_count"] == 1
 
 
-def test_cli_group_helios_dir_reaches_subcommands(tmp_path):
+def test_cli_group_panmind_dir_reaches_subcommands(tmp_path):
     runner = CliRunner()
-    result = runner.invoke(main, ["--helios-dir", str(tmp_path), "persona",
+    result = runner.invoke(main, ["--panmind-dir", str(tmp_path), "persona",
                                   "default", "writer"])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "default_persona").read_text().strip() == "writer"
 
-    result = runner.invoke(main, ["--helios-dir", str(tmp_path), "render"])
+    result = runner.invoke(main, ["--panmind-dir", str(tmp_path), "render"])
     assert result.exit_code == 0, result.output
     assert (tmp_path / "rendered" / "writer.md").exists()
 
-    bad = runner.invoke(main, ["--helios-dir", str(tmp_path), "persona",
+    bad = runner.invoke(main, ["--panmind-dir", str(tmp_path), "persona",
                                "default", "../x"])
     assert bad.exit_code != 0
 
@@ -103,13 +103,13 @@ def test_cli_group_helios_dir_reaches_subcommands(tmp_path):
 def test_cli_ingest_of_missing_transcript_is_a_quiet_noop(tmp_path):
     result = CliRunner().invoke(main, [
         "ingest", "--persona", "developer", "--session-id", "s",
-        "--transcript", str(tmp_path / "nope.jsonl"), "--helios-dir", str(tmp_path)])
+        "--transcript", str(tmp_path / "nope.jsonl"), "--panmind-dir", str(tmp_path)])
     assert result.exit_code == 0
     assert result.output == ""
 
 
 def test_rendered_context_counters_each_models_own_tendencies(tmp_path):
-    service = HeliosService(tmp_path)
+    service = PanMindService(tmp_path)
     bullets = {"structure": {"heavy_structure": 1.0}}
     declared = service.negotiator.declared("developer")["structure"]
     turns = [TurnObservation(persona="developer", session_id="s", turn_id=f"a{i}",
@@ -132,20 +132,20 @@ def test_rendered_context_counters_each_models_own_tendencies(tmp_path):
         "behavioral_context"]
     assert "model-a" not in service.context("developer", "model-b")[
         "behavioral_context"]
-    printed = CliRunner().invoke(main, ["--helios-dir", str(tmp_path), "render",
+    printed = CliRunner().invoke(main, ["--panmind-dir", str(tmp_path), "render",
                                         "developer", "--model", "model-a"])
     assert "Tendencies to counter" in printed.output
 
 
 def test_import_validates_the_persona_before_reading_the_source(tmp_path):
-    service = HeliosService(tmp_path)
+    service = PanMindService(tmp_path)
     with pytest.raises(SecurityError):
         service.import_profile(tmp_path / "missing.md", "../escape")
 
 
 def test_cli_status_shows_the_observed_posterior_next_to_the_declared(tmp_path):
-    HeliosService(tmp_path).record(terse_turns(60), "developer")
-    result = CliRunner().invoke(main, ["--helios-dir", str(tmp_path), "status"])
+    PanMindService(tmp_path).record(terse_turns(60), "developer")
+    result = CliRunner().invoke(main, ["--panmind-dir", str(tmp_path), "status"])
     assert result.exit_code == 0, result.output
     line = next(ln for ln in result.output.splitlines() if DIM in ln)
     assert "declared moderate" in line
@@ -154,12 +154,12 @@ def test_cli_status_shows_the_observed_posterior_next_to_the_declared(tmp_path):
 
 
 def test_cli_negotiate_accepts_pending_proposal(tmp_path):
-    HeliosService(tmp_path).record(terse_turns(60), "developer")
+    PanMindService(tmp_path).record(terse_turns(60), "developer")
     runner = CliRunner()
-    result = runner.invoke(main, ["--helios-dir", str(tmp_path), "negotiate",
+    result = runner.invoke(main, ["--panmind-dir", str(tmp_path), "negotiate",
                                   "developer", "--yes"])
     assert result.exit_code == 0, result.output
     assert "Accepted communication_register" in result.output
-    again = runner.invoke(main, ["--helios-dir", str(tmp_path), "negotiate",
+    again = runner.invoke(main, ["--panmind-dir", str(tmp_path), "negotiate",
                                  "developer"])
     assert "No credible drift" in again.output

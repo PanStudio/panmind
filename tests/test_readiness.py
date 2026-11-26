@@ -1,4 +1,4 @@
-"""End-to-end readiness tests for Helios plugin deployment.
+"""End-to-end readiness tests for PanMind plugin deployment.
 
 Simulates a realistic Claude Code session: bootstrap, hook events fire,
 observations accumulate, drift detection runs. Validates the full pipeline
@@ -14,15 +14,15 @@ from pathlib import Path
 import pytest
 from click.testing import CliRunner
 
-from helios_mcp.cli import main
+from panmind.cli import main
 
-HANDLER = Path(__file__).parent.parent / "helios-plugin" / "hooks" / "hook-handler.py"
-PLUGIN_DIR = Path(__file__).parent.parent / "helios-plugin"
+HANDLER = Path(__file__).parent.parent / "panmind-plugin" / "hooks" / "hook-handler.py"
+PLUGIN_DIR = Path(__file__).parent.parent / "panmind-plugin"
 
 
-def _run_handler(event_type: str, stdin_data: dict, helios_dir: Path) -> None:
+def _run_handler(event_type: str, stdin_data: dict, panmind_dir: Path) -> None:
     env = os.environ.copy()
-    env["HELIOS_DIR"] = str(helios_dir)
+    env["PANMIND_DIR"] = str(panmind_dir)
     subprocess.run(
         [sys.executable, str(HANDLER), event_type],
         input=json.dumps(stdin_data),
@@ -38,8 +38,8 @@ class TestSessionSimulation:
 
     @pytest.fixture
     def session_dir(self, tmp_path):
-        """Create a helios dir and simulate a full session of hook events."""
-        helios_dir = tmp_path / "helios"
+        """Create a panmind dir and simulate a full session of hook events."""
+        panmind_dir = tmp_path / "panmind"
 
         session_common = {
             "session_id": "sim-session-001",
@@ -49,13 +49,13 @@ class TestSessionSimulation:
         }
 
         # Session start
-        _run_handler("session-start", {**session_common, "source": "startup"}, helios_dir)
+        _run_handler("session-start", {**session_common, "source": "startup"}, panmind_dir)
 
         # User prompt
         _run_handler("prompt-submit", {
             **session_common,
             "prompt": "Fix the login bug in auth.py",
-        }, helios_dir)
+        }, panmind_dir)
 
         # Agent reads files (cautious pattern)
         for f in ["auth.py", "tests/test_auth.py", "config.py"]:
@@ -63,77 +63,77 @@ class TestSessionSimulation:
                 **session_common,
                 "tool_name": "Read",
                 "tool_input": {"file_path": f},
-            }, helios_dir)
+            }, panmind_dir)
 
         # Agent searches
         _run_handler("post-tool", {
             **session_common,
             "tool_name": "Grep",
             "tool_input": {"pattern": "login", "path": "src/"},
-        }, helios_dir)
+        }, panmind_dir)
 
         # Agent edits
         _run_handler("post-tool", {
             **session_common,
             "tool_name": "Edit",
             "tool_input": {"file_path": "auth.py", "old_string": "x", "new_string": "y"},
-        }, helios_dir)
+        }, panmind_dir)
 
         # Agent runs tests
         _run_handler("post-tool", {
             **session_common,
             "tool_name": "Bash",
             "tool_input": {"command": "pytest tests/test_auth.py"},
-        }, helios_dir)
+        }, panmind_dir)
 
         # Test fails
         _run_handler("post-tool-failure", {
             **session_common,
             "tool_name": "Bash",
             "tool_input": {"command": "pytest tests/test_auth.py"},
-        }, helios_dir)
+        }, panmind_dir)
 
         # Agent spawns a subagent to explore
         _run_handler("subagent-start", {
             **session_common,
             "agent_type": "Explore",
-        }, helios_dir)
+        }, panmind_dir)
         _run_handler("subagent-stop", {
             **session_common,
             "agent_type": "Explore",
-        }, helios_dir)
+        }, panmind_dir)
 
         # Agent fixes and retests
         _run_handler("post-tool", {
             **session_common,
             "tool_name": "Edit",
             "tool_input": {"file_path": "auth.py", "old_string": "a", "new_string": "b"},
-        }, helios_dir)
+        }, panmind_dir)
         _run_handler("post-tool", {
             **session_common,
             "tool_name": "Bash",
             "tool_input": {"command": "pytest tests/"},
-        }, helios_dir)
+        }, panmind_dir)
 
         # Notification
         _run_handler("notification", {
             **session_common,
             "content": "All tests passing",
-        }, helios_dir)
+        }, panmind_dir)
 
         # Stop
         _run_handler("stop", {
             **session_common,
             "stop_hook_active": False,
-        }, helios_dir)
+        }, panmind_dir)
 
         # Session end
         _run_handler("session-end", {
             **session_common,
             "reason": "prompt_input_exit",
-        }, helios_dir)
+        }, panmind_dir)
 
-        return helios_dir
+        return panmind_dir
 
     def test_observations_recorded(self, session_dir):
         obs_file = session_dir / "observations" / "hooks" / "default.jsonl"
@@ -242,22 +242,22 @@ class TestPluginInstallReadiness:
     def test_mcp_json_valid(self):
         path = PLUGIN_DIR / ".mcp.json"
         config = json.loads(path.read_text())
-        server = config["mcpServers"]["helios"]
+        server = config["mcpServers"]["panmind"]
         assert server["command"] == "uvx"
 
     def test_skill_has_frontmatter(self):
-        content = (PLUGIN_DIR / "skills" / "helios" / "SKILL.md").read_text()
+        content = (PLUGIN_DIR / "skills" / "panmind" / "SKILL.md").read_text()
         assert content.startswith("---\n")
-        assert "name: helios" in content
+        assert "name: panmind" in content
         assert "description:" in content
         assert "user-invocable: true" in content
 
-    def test_hook_scripts_have_no_helios_mcp_dependency(self):
+    def test_hook_scripts_have_no_panmind_dependency(self):
         """Every hooks/*.py script must run under a bare python3 that may
-        not have helios_mcp installed, so none of them may import it —
+        not have panmind installed, so none of them may import it —
         checked via ast rather than a substring search, since a substring
         check false-positives on any script whose comments or docstrings
-        merely mention helios_mcp.security (as hook-handler.py's does, to
+        merely mention panmind.security (as hook-handler.py's does, to
         explain why it doesn't import it)."""
         import ast
 
@@ -270,24 +270,24 @@ class TestPluginInstallReadiness:
                     names = {(node.module or "").split(".")[0]}
                 else:
                     continue
-                assert "helios_mcp" not in names, (
-                    f"{script.name} imports helios_mcp: {ast.dump(node)}"
+                assert "panmind" not in names, (
+                    f"{script.name} imports panmind: {ast.dump(node)}"
                 )
 
 
 class TestStandaloneSkillReadiness:
     """Validate the standalone skill package."""
 
-    SKILL_DIR = Path(__file__).parent.parent / "helios-skill"
+    SKILL_DIR = Path(__file__).parent.parent / "panmind-skill"
 
     def test_skill_md_has_frontmatter(self):
         content = (self.SKILL_DIR / "SKILL.md").read_text()
         assert content.startswith("---\n")
-        assert "name: helios" in content
+        assert "name: panmind" in content
 
     def test_mcp_json_has_server(self):
         config = json.loads((self.SKILL_DIR / ".mcp.json").read_text())
-        assert config["mcpServers"]["helios"]["command"] == "uvx"
+        assert config["mcpServers"]["panmind"]["command"] == "uvx"
 
     def test_skill_matches_plugin_except_tool_prefix(self):
         """The two SKILL.md files are deliberately not byte-identical: a
@@ -296,9 +296,9 @@ class TestStandaloneSkillReadiness:
         configured directly (as the standalone skill's own .mcp.json
         does) is named mcp__<server>__<tool>, with no plugin_ component.
         Confirmed against current docs. Everything else must match."""
-        plugin_skill = (PLUGIN_DIR / "skills" / "helios" / "SKILL.md").read_text()
+        plugin_skill = (PLUGIN_DIR / "skills" / "panmind" / "SKILL.md").read_text()
         standalone_skill = (self.SKILL_DIR / "SKILL.md").read_text()
-        normalized_plugin = plugin_skill.replace("mcp__plugin_helios_helios__", "mcp__helios__")
+        normalized_plugin = plugin_skill.replace("mcp__plugin_panmind_panmind__", "mcp__panmind__")
         assert normalized_plugin == standalone_skill
 
     def test_mcp_matches_plugin_except_server_command(self):
@@ -317,17 +317,17 @@ class TestCLIBootstrapAndStatus:
         return CliRunner()
 
     def test_status_no_bootstrap(self, runner, tmp_path):
-        helios_dir = tmp_path / "helios"
-        helios_dir.mkdir()
-        result = runner.invoke(main, ["status", "--helios-dir", str(helios_dir)])
+        panmind_dir = tmp_path / "panmind"
+        panmind_dir.mkdir()
+        result = runner.invoke(main, ["status", "--panmind-dir", str(panmind_dir)])
         assert result.exit_code == 0
         # Any command on a fresh directory bootstraps it.
         assert "developer: 0 turns" in result.output
 
     def test_negotiate_no_observations(self, runner, tmp_path):
-        helios_dir = tmp_path / "helios"
-        helios_dir.mkdir()
-        (helios_dir / "base").mkdir()
-        result = runner.invoke(main, ["negotiate", "developer", "--helios-dir", str(helios_dir)])
+        panmind_dir = tmp_path / "panmind"
+        panmind_dir.mkdir()
+        (panmind_dir / "base").mkdir()
+        result = runner.invoke(main, ["negotiate", "developer", "--panmind-dir", str(panmind_dir)])
         assert result.exit_code == 0
         assert "over 0 observed turns" in result.output

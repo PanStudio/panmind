@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from helios_mcp.endorsement import (
+from panmind.endorsement import (
     Endorsement,
     hints_from_text,
     judge_text,
     judge_turn,
     opener_hints,
 )
-from helios_mcp.transcript import parse_records
+from panmind.transcript import parse_records
 
 from .transcript_fixtures import TranscriptBuilder
 
@@ -137,7 +137,7 @@ def test_manner_style_requests_become_hints(text, dim, state, complaint):
 
 def test_hints_for_undefined_dimensions_are_dropped(monkeypatch):
     monkeypatch.setattr(
-        "helios_mcp.endorsement.list_dimensions", lambda: ["communication_register"]
+        "panmind.endorsement.list_dimensions", lambda: ["communication_register"]
     )
     assert hints_from_text("too many bullets, and too long") == (
         {"communication_register": "terse"}, True,
@@ -153,9 +153,9 @@ def test_trust_headless_lifts_only_the_headless_signal(monkeypatch):
         return judge_turn(parse_records(b.records).turns[0]).kind
 
     headless = {"entrypoint": "sdk-cli", "promptSource": "sdk"}
-    monkeypatch.delenv("HELIOS_TRUST_HEADLESS", raising=False)
+    monkeypatch.delenv("PANMIND_TRUST_HEADLESS", raising=False)
     assert kind(**headless) == "neutral"
-    monkeypatch.setenv("HELIOS_TRUST_HEADLESS", "1")
+    monkeypatch.setenv("PANMIND_TRUST_HEADLESS", "1")
     assert kind(**headless) == "corrected"
     for provenance in ({"origin": {"kind": "coordinator"}},
                        {"scheduledTaskId": "cron-1"},

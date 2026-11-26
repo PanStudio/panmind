@@ -1,0 +1,10 @@
+{
+  "name": "panmind",
+  "version": "0.5.0",
+  "description": "Learns your working style and negotiates an update with you when what it actually does drifts from what you've declared.",
+  "author": {"name": "Anthony Kougkas"},
+  "homepage": "https://github.com/PanStudio/panmind",
+  "repository": "https://github.com/PanStudio/panmind",
+  "license": "Apache-2.0",
+  "keywords": ["behavioral", "personality", "drift", "personalization", "preferences"]
+}

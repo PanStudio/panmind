@@ -1,9 +1,9 @@
 """The rendered context keeps each distribution's shape."""
 
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.renderer import BehavioralRenderer, tendencies
-from helios_mcp.taxonomy import get_state_label
+from panmind.distribution import BehavioralDistribution
+from panmind.profile import BehavioralProfile
+from panmind.renderer import BehavioralRenderer, tendencies
+from panmind.taxonomy import get_state_label
 
 DIM = "communication_register"
 

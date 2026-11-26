@@ -6,23 +6,23 @@ import time
 
 import pytest
 
-from helios_mcp.bootstrap import BootstrapManager
-from helios_mcp.drift import js_divergence
-from helios_mcp.negotiation import Negotiator, describe
-from helios_mcp.store import ObservationStore, TurnObservation
+from panmind.bootstrap import BootstrapManager
+from panmind.drift import js_divergence
+from panmind.negotiation import Negotiator, describe
+from panmind.store import ObservationStore, TurnObservation
 
 DIM = "communication_register"
 
 
 @pytest.fixture
-def helios(tmp_path):
+def panmind(tmp_path):
     BootstrapManager(tmp_path).bootstrap_installation()
     return tmp_path
 
 
-def feed(helios, label, n, persona="developer", start=0, **kw):
+def feed(panmind, label, n, persona="developer", start=0, **kw):
     kw.setdefault("endorsement", 1.0)
-    ObservationStore(helios).append(
+    ObservationStore(panmind).append(
         TurnObservation(persona=persona, session_id="s", turn_id=f"t{start + i}",
                         timestamp=float(i), source="heuristic",
                         labels={DIM: label}, **kw)
@@ -32,15 +32,15 @@ def feed(helios, label, n, persona="developer", start=0, **kw):
 TERSE = {"terse": 0.8, "moderate": 0.2}
 
 
-def commits(helios):
-    out = subprocess.run(["git", "-C", str(helios), "log", "--format=%s"],
+def commits(panmind):
+    out = subprocess.run(["git", "-C", str(panmind), "log", "--format=%s"],
                          capture_output=True, text=True, check=True).stdout
     return out.splitlines()
 
 
-def test_accept_converges_on_the_same_ledger(helios):
-    feed(helios, TERSE, 60)
-    neg = Negotiator(helios)
+def test_accept_converges_on_the_same_ledger(panmind):
+    feed(panmind, TERSE, 60)
+    neg = Negotiator(panmind)
     first = neg.evaluate("developer")
     assert first.proposal is not None
     assert DIM in first.proposal.changes
@@ -55,22 +55,22 @@ def test_accept_converges_on_the_same_ledger(helios):
     again = neg.evaluate("developer")
     assert again.proposal is None
     assert not again.endorsed.drifted_dimensions
-    assert "accepted" in commits(helios)[0]
+    assert "accepted" in commits(panmind)[0]
 
 
-def test_evaluate_keeps_the_pending_proposal_id_while_the_target_holds(helios):
-    feed(helios, TERSE, 60)
-    neg = Negotiator(helios)
+def test_evaluate_keeps_the_pending_proposal_id_while_the_target_holds(panmind):
+    feed(panmind, TERSE, 60)
+    neg = Negotiator(panmind)
     first = neg.evaluate("developer").proposal
     assert first is not None
     assert neg.evaluate("developer").proposal == first
 
 
-def test_evidence_surfaces_a_suggestion_before_a_strong_proposal(helios):
-    neg = Negotiator(helios)
+def test_evidence_surfaces_a_suggestion_before_a_strong_proposal(panmind):
+    neg = Negotiator(panmind)
     first = None
     for n in range(1, 80):
-        feed(helios, TERSE, 1, start=n)
+        feed(panmind, TERSE, 1, start=n)
         evaluation = neg.evaluate("developer", auto_accept=False)
         if evaluation.proposal is not None:
             first = evaluation
@@ -80,19 +80,19 @@ def test_evidence_surfaces_a_suggestion_before_a_strong_proposal(helios):
     assert first.proposal.changes[DIM].credibility < neg.config.credibility_level
     assert "Suggestion" in describe(first)[0]
 
-    feed(helios, TERSE, 60, start=100)
+    feed(panmind, TERSE, 60, start=100)
     strong = neg.evaluate("developer", auto_accept=False).proposal
     assert strong is not None and strong.tier == "strong"
     assert strong.id != first.proposal.id
 
 
-def test_reject_is_persisted_committed_and_cools_down(helios):
-    feed(helios, TERSE, 60)
-    neg = Negotiator(helios, cooldown_seconds=100)
+def test_reject_is_persisted_committed_and_cools_down(panmind):
+    feed(panmind, TERSE, 60)
+    neg = Negotiator(panmind, cooldown_seconds=100)
     proposal = neg.evaluate("developer", now=0).proposal
     assert proposal is not None
     neg.reject("developer", proposal.id, "I like it wordy", )
-    assert "rejected" in commits(helios)[0]
+    assert "rejected" in commits(panmind)[0]
 
     during = neg.evaluate("developer", now=proposal.created_at + 10)
     assert during.proposal is None and DIM in during.cooling_down
@@ -100,19 +100,19 @@ def test_reject_is_persisted_committed_and_cools_down(helios):
         neg.accept("developer", proposal.id)
 
 
-def test_rejection_pulls_endorsed_evidence_toward_declared(helios):
-    feed(helios, TERSE, 60)
-    neg = Negotiator(helios)
+def test_rejection_pulls_endorsed_evidence_toward_declared(panmind):
+    feed(panmind, TERSE, 60)
+    neg = Negotiator(panmind)
     before = neg.evaluate("developer").endorsed.dimensions[DIM]
     neg.reject("developer", neg.proposals.pending("developer").id)  # type: ignore[union-attr]
     after, _, _ = neg.assess("developer")
     assert after.dimensions[DIM].divergence < before.divergence
 
 
-def test_corrections_toward_declared_drive_drift_the_other_way(helios):
-    declared = Negotiator(helios).declared("developer")[DIM]
-    feed(helios, TERSE, 60, endorsement=-1.0, correction_hint={DIM: "thorough"})
-    ev = Negotiator(helios).evaluate("developer")
+def test_corrections_toward_declared_drive_drift_the_other_way(panmind):
+    declared = Negotiator(panmind).declared("developer")[DIM]
+    feed(panmind, TERSE, 60, endorsement=-1.0, correction_hint={DIM: "thorough"})
+    ev = Negotiator(panmind).evaluate("developer")
     assert ev.proposal is not None
     assert ev.proposal.changes[DIM].target["thorough"] > declared["thorough"]
     # The fingerprint still says the agent was terse.
@@ -120,40 +120,40 @@ def test_corrections_toward_declared_drive_drift_the_other_way(helios):
     assert fp["terse"] > declared["terse"]
 
 
-def test_small_well_supported_move_auto_accepts_and_commits(helios):
-    neg = Negotiator(helios)
+def test_small_well_supported_move_auto_accepts_and_commits(panmind):
+    neg = Negotiator(panmind)
     declared = neg.declared("developer")[DIM]
     nudged = dict(declared)
     nudged["terse"] += 0.1
     nudged["moderate"] -= 0.1
-    feed(helios, nudged, 2000)
+    feed(panmind, nudged, 2000)
     ev = neg.evaluate("developer")
     assert ev.auto_accepted == [DIM]
     assert ev.proposal is None
-    assert "auto-accepted" in commits(helios)[0]
+    assert "auto-accepted" in commits(panmind)[0]
     assert js_divergence(list(neg.declared("developer")[DIM].values()),
                          list(nudged.values())) < js_divergence(
         list(declared.values()), list(nudged.values()))
 
 
-def test_session_override_is_not_the_negotiation_baseline(helios):
-    from helios_mcp.distribution import BehavioralDistribution
-    from helios_mcp.profile import BehavioralProfile
+def test_session_override_is_not_the_negotiation_baseline(panmind):
+    from panmind.distribution import BehavioralDistribution
+    from panmind.profile import BehavioralProfile
 
-    neg = Negotiator(helios)
+    neg = Negotiator(panmind)
     before = neg.declared("developer")
     BehavioralProfile(
         agent_id="developer", level="session", inherit_weight=0.0,
         distributions={DIM: BehavioralDistribution.point_mass(DIM, "terse")},
-    ).save(helios / "temporary" / "developer.yaml")
+    ).save(panmind / "temporary" / "developer.yaml")
     assert neg.declared("developer") == before
 
 
 def test_racing_accepts_keep_both_dimensions_and_commit_only_their_files(
-        helios, monkeypatch):
-    from helios_mcp.profile import BehavioralProfile
-    from helios_mcp.store import ProposedChange
-    from helios_mcp.taxonomy import list_states
+        panmind, monkeypatch):
+    from panmind.profile import BehavioralProfile
+    from panmind.store import ProposedChange
+    from panmind.taxonomy import list_states
 
     def change(dim, state):
         n = len(list_states(dim))
@@ -161,7 +161,7 @@ def test_racing_accepts_keep_both_dimensions_and_commit_only_their_files(
         return ProposedChange(declared=target, target=target, divergence=0.1,
                               credibility=1.0)
 
-    neg = Negotiator(helios)
+    neg = Negotiator(panmind)
     user = neg.proposals.create_decided("developer", {DIM: change(DIM, "terse")},
                                         10, "accepted")
     auto = neg.proposals.create_decided(
@@ -169,8 +169,8 @@ def test_racing_accepts_keep_both_dimensions_and_commit_only_their_files(
         "auto_accepted")
     neg._apply("developer", user, [DIM])
     # Someone else's staged file must not ride along in a profile commit.
-    (helios / "notes.txt").write_text("x")
-    subprocess.run(["git", "-C", str(helios), "add", "notes.txt"], check=True)
+    (panmind / "notes.txt").write_text("x")
+    subprocess.run(["git", "-C", str(panmind), "add", "notes.txt"], check=True)
 
     load = BehavioralProfile.load
 
@@ -192,14 +192,14 @@ def test_racing_accepts_keep_both_dimensions_and_commit_only_their_files(
     assert resolved[DIM]["terse"] == pytest.approx(0.9, abs=0.01)
     assert resolved["structure"]["prose"] == pytest.approx(0.9, abs=0.01)
     committed = subprocess.run(
-        ["git", "-C", str(helios), "log", "--name-only", "--format="],
+        ["git", "-C", str(panmind), "log", "--name-only", "--format="],
         capture_output=True, text=True, check=True).stdout.split()
     assert "notes.txt" not in committed
 
 
 def test_a_shift_under_a_held_lead_names_the_state_that_gained():
-    from helios_mcp.drift import DimensionDrift
-    from helios_mcp.negotiation import _shift
+    from panmind.drift import DimensionDrift
+    from panmind.negotiation import _shift
 
     declared = {"prose": 0.84, "light_structure": 0.10, "heavy_structure": 0.06}
     mean = {"prose": 0.51, "light_structure": 0.43, "heavy_structure": 0.06}
@@ -211,42 +211,42 @@ def test_a_shift_under_a_held_lead_names_the_state_that_gained():
     assert "prefer 'prose'" not in text
 
 
-def declare(helios, dims, persona="developer"):
-    from helios_mcp.profile import BehavioralProfile
+def declare(panmind, dims, persona="developer"):
+    from panmind.profile import BehavioralProfile
 
     user = BehavioralProfile(agent_id=f"{persona}_user", level="user",
                              distributions={}, parent_id=persona,
                              specialization_level=3, declared_dimensions=dims)
-    user.save(helios / "personas" / f"{persona}_user.yaml")
+    user.save(panmind / "personas" / f"{persona}_user.yaml")
 
 
-def test_a_declared_dimension_moves_only_on_explicit_signals(helios):
-    declare(helios, (DIM,))
-    neg = Negotiator(helios)
-    feed(helios, TERSE, 200, endorsement=0.5)  # moved on, never approved
+def test_a_declared_dimension_moves_only_on_explicit_signals(panmind):
+    declare(panmind, (DIM,))
+    neg = Negotiator(panmind)
+    feed(panmind, TERSE, 200, endorsement=0.5)  # moved on, never approved
     passive = neg.evaluate("developer")
     assert passive.proposal is None and not passive.auto_accepted
     assert DIM not in passive.evidence.endorsed
     assert passive.evidence.fingerprint[DIM]["terse"] == pytest.approx(160.0)
 
-    feed(helios, TERSE, 10, start=200, endorsement=-1.0,
+    feed(panmind, TERSE, 10, start=200, endorsement=-1.0,
          correction_hint={DIM: "terse"})
     explicit = neg.evaluate("developer")
     assert explicit.proposal is not None and DIM in explicit.proposal.changes
 
 
-def test_approved_turns_still_count_on_a_declared_dimension(helios):
-    declare(helios, (DIM,))
-    feed(helios, TERSE, 5, endorsement=1.0)
-    evidence = Negotiator(helios).evidence("developer")
+def test_approved_turns_still_count_on_a_declared_dimension(panmind):
+    declare(panmind, (DIM,))
+    feed(panmind, TERSE, 5, endorsement=1.0)
+    evidence = Negotiator(panmind).evidence("developer")
     assert evidence.endorsed[DIM]["terse"] == pytest.approx(4.0)
 
 
-def test_a_few_consistent_hints_are_enough_to_suggest(helios):
+def test_a_few_consistent_hints_are_enough_to_suggest(panmind):
     # A user who asks five times for no recaps has stated a preference; the
     # agent's recapping turns themselves carry no weight once corrected.
-    neg = Negotiator(helios)
-    store = ObservationStore(helios)
+    neg = Negotiator(panmind)
+    store = ObservationStore(panmind)
 
     def hint(i):
         store.append([TurnObservation(

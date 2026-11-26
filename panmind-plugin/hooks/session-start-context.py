@@ -1,0 +1,65 @@
+#!/usr/bin/env python3
+"""Sync SessionStart hook for PanMind plugin.
+
+Injects PANMIND_DIR/rendered/<persona>.md into the new session's context,
+written by the MCP server's renderer whenever a profile changes. Runs
+synchronously (hooks.json has no "async" on this entry) because Claude
+Code only reads a SessionStart hook's stdout as context if it waits for
+the hook to finish.
+
+Per current Claude Code docs, a SessionStart hook's stdout is added to
+context as plain text. UserPromptSubmit documents a structured
+`{"hookSpecificOutput": {...}}` stdout envelope instead, but SessionStart
+is only documented to consume raw stdout text, so this prints the
+rendered markdown directly rather than wrapping it in that envelope.
+
+Silent no-op (no stdout, exit 0) whenever there's nothing to inject:
+a fresh install, an unrendered persona, or a read failure. A session
+start is never delayed or polluted by a missing file this way. Must
+stay fast: this hook blocks session start, stdlib-only, no subprocess,
+one file read.
+"""
+
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _persona import resolve_persona  # noqa: E402
+
+
+def main() -> None:
+    if os.environ.get("PANMIND_DISABLE") == "1":
+        sys.exit(0)
+
+    try:
+        raw_input = sys.stdin.read()
+        raw_json = json.loads(raw_input) if raw_input.strip() else {}
+        if not isinstance(raw_json, dict):
+            raw_json = {}
+    except json.JSONDecodeError:
+        raw_json = {}
+
+    cwd = raw_json.get("cwd", "")
+    cwd = cwd if isinstance(cwd, str) else ""
+
+    panmind_dir = Path(os.environ.get("PANMIND_DIR", str(Path.home() / ".panmind")))
+    persona = resolve_persona(cwd, panmind_dir)
+
+    rendered_path = panmind_dir / "rendered" / f"{persona}.md"
+    try:
+        if not rendered_path.is_file():
+            sys.exit(0)
+        content = rendered_path.read_text(encoding="utf-8").strip()
+    except OSError:
+        sys.exit(0)
+
+    if not content:
+        sys.exit(0)
+
+    print(content)
+
+
+if __name__ == "__main__":
+    main()

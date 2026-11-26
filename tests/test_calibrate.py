@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from helios_mcp.calibrate import (
+from panmind.calibrate import (
     CORPUS_PERSONA,
     agreement_report,
     heuristic_report,
@@ -15,8 +15,8 @@ from helios_mcp.calibrate import (
     label_corpus,
     ledger_report,
 )
-from helios_mcp.store import ObservationStore, TurnObservation
-from helios_mcp.transcript import parse_transcript
+from panmind.store import ObservationStore, TurnObservation
+from panmind.transcript import parse_transcript
 
 from .transcript_fixtures import TranscriptBuilder
 

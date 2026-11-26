@@ -20,18 +20,18 @@ from pathlib import Path
 
 import yaml
 
-from helios_mcp.bootstrap import BootstrapManager
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.hierarchy import IdentityHierarchy
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.taxonomy import list_dimensions
+from panmind.bootstrap import BootstrapManager
+from panmind.distribution import BehavioralDistribution
+from panmind.hierarchy import IdentityHierarchy
+from panmind.profile import BehavioralProfile
+from panmind.taxonomy import list_dimensions
 
 _DOMAIN_PERSONAS = ("developer", "researcher", "writer")
 
 
-def _bootstrap(helios_dir: Path) -> BootstrapManager:
+def _bootstrap(panmind_dir: Path) -> BootstrapManager:
     """Bootstrap a fresh installation without touching git."""
-    manager = BootstrapManager(helios_dir, git_enabled=False)
+    manager = BootstrapManager(panmind_dir, git_enabled=False)
     manager.bootstrap_installation()
     return manager
 
@@ -40,11 +40,11 @@ def test_fresh_bootstrap_creates_v2_identity_and_domain_personas(
     tmp_path: Path,
 ) -> None:
     """A fresh install must write the v2-schema identity.yaml and personas."""
-    helios_dir = tmp_path / ".helios"
+    panmind_dir = tmp_path / ".panmind"
 
-    _bootstrap(helios_dir)
+    _bootstrap(panmind_dir)
 
-    identity_file = helios_dir / "base" / "identity.yaml"
+    identity_file = panmind_dir / "base" / "identity.yaml"
     assert identity_file.exists(), "base/identity.yaml was not created"
 
     identity_data = yaml.safe_load(identity_file.read_text(encoding="utf-8"))
@@ -54,7 +54,7 @@ def test_fresh_bootstrap_creates_v2_identity_and_domain_personas(
     assert "behavioral_distributions" in identity_data
     assert set(identity_data["behavioral_distributions"]) == set(list_dimensions())
 
-    personas_dir = helios_dir / "personas"
+    personas_dir = panmind_dir / "personas"
     assert personas_dir.exists()
 
     for name in _DOMAIN_PERSONAS:
@@ -72,12 +72,12 @@ def test_fresh_bootstrap_identity_loads_valid_distributions(tmp_path: Path) -> N
     """The bootstrapped identity/persona files must load through the real
     profile and hierarchy loaders and yield valid distributions over all
     four taxonomy dimensions."""
-    helios_dir = tmp_path / ".helios"
+    panmind_dir = tmp_path / ".panmind"
 
-    _bootstrap(helios_dir)
+    _bootstrap(panmind_dir)
 
     # Loading the raw species profile directly through BehavioralProfile.
-    identity_file = helios_dir / "base" / "identity.yaml"
+    identity_file = panmind_dir / "base" / "identity.yaml"
     species_profile = BehavioralProfile.load(identity_file)
     assert set(species_profile.distributions) == set(list_dimensions())
     for dim, dist in species_profile.distributions.items():
@@ -86,7 +86,7 @@ def test_fresh_bootstrap_identity_loads_valid_distributions(tmp_path: Path) -> N
         assert abs(sum(dist.probs) - 1.0) < 1e-6
 
     # Resolving through the real 4-level hierarchy for each domain persona.
-    hierarchy = IdentityHierarchy(helios_dir)
+    hierarchy = IdentityHierarchy(panmind_dir)
     for name in _DOMAIN_PERSONAS:
         resolved = hierarchy.resolve(name)
         assert set(resolved.distributions) == set(list_dimensions())
@@ -106,12 +106,12 @@ def test_second_bootstrap_is_idempotent_and_preserves_user_edits(
 ) -> None:
     """Bootstrapping twice over the same directory must not clobber
     existing (possibly user-edited) v2 profiles."""
-    helios_dir = tmp_path / ".helios"
+    panmind_dir = tmp_path / ".panmind"
 
-    _bootstrap(helios_dir)
+    _bootstrap(panmind_dir)
 
-    identity_file = helios_dir / "base" / "identity.yaml"
-    developer_file = helios_dir / "personas" / "developer.yaml"
+    identity_file = panmind_dir / "base" / "identity.yaml"
+    developer_file = panmind_dir / "personas" / "developer.yaml"
 
     # Simulate a user edit: keep the v2 schema marker (so it is recognized
     # as an existing v2 profile) but change values a fresh install would
@@ -132,7 +132,7 @@ def test_second_bootstrap_is_idempotent_and_preserves_user_edits(
 
     # Bootstrapping again over the same directory must be a no-op for
     # already-present v2 profiles.
-    _bootstrap(helios_dir)
+    _bootstrap(panmind_dir)
 
     identity_after = yaml.safe_load(identity_file.read_text(encoding="utf-8"))
     assert identity_after["description"] == "USER EDITED SPECIES PROFILE"

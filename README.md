@@ -1,14 +1,14 @@
-# Helios MCP
+# PanMind
 
-**A behavioral genome for AI agents.** Helios is a Model Context Protocol (MCP)
+**A behavioral genome for AI agents.** PanMind is a Model Context Protocol (MCP)
 server that represents an agent's personality as probability distributions,
 measures how far observed behavior drifts from the declared profile using a
 Dirichlet posterior and Jensen-Shannon divergence, and asks before committing
 a change.
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/akougkas/helios-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/akougkas/helios-mcp/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![CI](https://github.com/PanStudio/panmind/actions/workflows/ci.yml/badge.svg)](https://github.com/PanStudio/panmind/actions/workflows/ci.yml)
 [![Built with UV](https://img.shields.io/badge/built%20with-UV-blue?logo=python)](https://github.com/astral-sh/uv)
 
 ## The problem
@@ -21,8 +21,8 @@ measure.
 
 ## The model
 
-Helios represents behavior along nine fixed dimensions, defined in
-[`src/helios_mcp/taxonomy.py`](src/helios_mcp/taxonomy.py). Four cover stance:
+PanMind represents behavior along nine fixed dimensions, defined in
+[`src/panmind/taxonomy.py`](src/panmind/taxonomy.py). Four cover stance:
 
 | Dimension | What it captures | States |
 |---|---|---|
@@ -42,12 +42,12 @@ Five more, orthogonal to stance, cover manner:
 | `pushback` | holding a position versus giving in (labeled only when the user pushed back) | holds_position, concedes_with_reason, capitulates |
 
 Each dimension is not a label or a scalar. It's a `BehavioralDistribution`
-([`distribution.py`](src/helios_mcp/distribution.py)): a probability over
+([`distribution.py`](src/panmind/distribution.py)): a probability over
 that dimension's discrete states, always summing to 1.0. A persona that is
 "mostly terse but sometimes thorough" is `{terse: 0.6, thorough: 0.3, ...}`,
 not a single string.
 
-Helios keeps two such distributions per dimension per persona: a `fingerprint`
+PanMind keeps two such distributions per dimension per persona: a `fingerprint`
 (what the agent actually did, across every turn, diagnostics only) and an
 `endorsed` posterior (the style the user endorses, built from a Dirichlet
 prior centered on the declared profile plus evidence from observed turns,
@@ -62,7 +62,7 @@ just noise, and whether a proposal is a mild suggestion or a strong one.
 ### Identity hierarchy
 
 Profiles resolve through four levels: species, domain, user, session
-(`IdentityHierarchy` in [`hierarchy.py`](src/helios_mcp/hierarchy.py)).
+(`IdentityHierarchy` in [`hierarchy.py`](src/panmind/hierarchy.py)).
 A species-level base blends with an optional domain persona, then an
 optional per-user adaptation, then an optional per-session override. Each
 blend step is a mixture, `M(x) = w · parent(x) + (1-w) · child(x)`, where the
@@ -77,13 +77,13 @@ toward the parent; a highly specialized child dominates.
 
 ### Drift and negotiation
 
-[`drift.py`](src/helios_mcp/drift.py) measures, per dimension, the Jensen-Shannon
+[`drift.py`](src/panmind/drift.py) measures, per dimension, the Jensen-Shannon
 divergence between the endorsed posterior mean and the declared profile, plus
 a credibility check via seeded Dirichlet sampling. A dimension can surface as
 a **suggestion** (lower credibility bar) or a **strong proposal** (higher bar),
 phrased as suggestions either way so a plain "no" is a complete answer. A
 small, well-supported move auto-accepts silently; a bigger one goes through
-[`negotiation.py`](src/helios_mcp/negotiation.py), which persists a proposal
+[`negotiation.py`](src/panmind/negotiation.py), which persists a proposal
 with an id, writes a natural-language summary, and waits. Nothing is written
 until a human (or the calling agent, on the human's behalf) accepts it by that
 id, at which point the target profile is written to the persona's user-level
@@ -99,7 +99,7 @@ waiting on volume alone. And a dimension that `init` or `import` took directly
 from a declared source (`CLAUDE.md`, the active output style, recorded as
 `declared_dimensions` on the profile) only moves on those same explicit
 signals: an uncorrected turn that merely matches or drifts from a declared
-dimension carries no endorsed weight there, so passing on Helios's own
+dimension carries no endorsed weight there, so passing on PanMind's own
 rendered suggestion can't quietly outvote what you wrote down yourself.
 `status` marks these dimensions `declared: explicit signals only`. Exact
 thresholds live in `drift.DriftConfig` and are documented in
@@ -107,12 +107,12 @@ thresholds live in `drift.DriftConfig` and are documented in
 
 ## MCP tools
 
-The server ([`src/helios_mcp/server.py`](src/helios_mcp/server.py)) exposes
+The server ([`src/panmind/server.py`](src/panmind/server.py)) exposes
 exactly **7 tools**, all registered with `@mcp.tool`:
 
 | Tool | Parameters | What it does |
 |---|---|---|
-| `list_personas` | — | Lists persona names found under `~/.helios/personas/*.yaml`. |
+| `list_personas` | — | Lists persona names found under `~/.panmind/personas/*.yaml`. |
 | `get_behavioral_context` | `persona_name` | Resolves the 4-level hierarchy for the persona and renders it as system-prompt text. |
 | `observe_interaction` | `persona_name`, `messages`, `session_id` | Turns conversation messages into observations, appends them to the persona's ledger, and reports current drift and whether negotiation is recommended. |
 | `get_drift_report` | `persona_name` | Computes endorsed drift against the declared profile: a natural-language summary, per-dimension detail, fingerprint diagnostics, and the id of any pending proposal with its tier (suggestion/strong). |
@@ -122,21 +122,21 @@ exactly **7 tools**, all registered with `@mcp.tool`:
 
 ## Delivery
 
-Helios ships on three surfaces:
+PanMind ships on three surfaces:
 
-- **Claude Code plugin**: [`helios-plugin/`](helios-plugin/) bundles the
+- **Claude Code plugin**: [`panmind-plugin/`](panmind-plugin/) bundles the
   MCP server config (`.mcp.json`), observation hooks (`hooks/`), a skill
-  (`skills/helios/SKILL.md`), and an observer agent (`agents/`).
-- **Standalone skill**: [`helios-skill/`](helios-skill/) has just the MCP
+  (`skills/panmind/SKILL.md`), and an observer agent (`agents/`).
+- **Standalone skill**: [`panmind-skill/`](panmind-skill/) has just the MCP
   config and `SKILL.md`, for lighter-weight adoption without the hooks.
 - **Marketplace entry**: [`.claude-plugin/marketplace.json`](.claude-plugin/marketplace.json)
-  lists `helios-plugin/` as an installable plugin. The manifest lives at the
+  lists `panmind-plugin/` as an installable plugin. The manifest lives at the
   repo root, not in a nested `marketplace/` directory, because a marketplace
   plugin `source` must resolve inside the marketplace's own root. A source
   pointing anywhere outside that root, symlink or plain relative path, is
   rejected at install.
 
-The package also installs a console script: `helios-mcp = helios_mcp.cli:main`.
+The package also installs a console script: `panmind = panmind.cli:main`.
 
 ## Install and run
 
@@ -144,43 +144,43 @@ Requires Python ≥ 3.13, managed with [uv](https://docs.astral.sh/uv/). Not on
 PyPI yet, so install from a local checkout.
 
 ```bash
-git clone https://github.com/akougkas/helios-mcp
-cd helios-mcp
+git clone https://github.com/PanStudio/panmind
+cd panmind
 uv sync
-uv run helios-mcp --verbose   # starts the MCP server over stdio
-uv run helios-mcp init        # onboard: import CLAUDE.md + the active output style
+uv run panmind --verbose      # starts the MCP server over stdio
+uv run panmind init           # onboard: import CLAUDE.md + the active output style
 ```
 
-On first run, `helios-mcp` bootstraps `~/.helios/` (or `$HELIOS_DIR`): it
+On first run, `panmind` bootstraps `~/.panmind/` (or `$PANMIND_DIR`): it
 creates `base/`, `personas/`, `learned/`, `temporary/`, initializes a git
 repo there, and copies the default species profile and `developer`/
-`researcher`/`writer` domain personas. `helios-mcp init` goes further: it
+`researcher`/`writer` domain personas. `panmind init` goes further: it
 imports the active `CLAUDE.md` and output style into a persona's user level
 as the authoritative starting profile and sets it as the default.
 
 Both delivery surfaces below ship a `.mcp.json` that resolves the server via
-`uvx --from "${HELIOS_SOURCE:-helios-mcp}" helios-mcp`. Point `HELIOS_SOURCE`
+`uvx --from "${PANMIND_SOURCE:-panmind}" panmind`. Point `PANMIND_SOURCE`
 at a local checkout to use it before it's published:
 
 ```bash
-export HELIOS_SOURCE=/path/to/helios-mcp
+export PANMIND_SOURCE=/path/to/panmind
 ```
 
 ### CLI
 
-Beyond running the server, `helios-mcp` has subcommands:
+Beyond running the server, `panmind` has subcommands:
 
 ```bash
-uv run helios-mcp init [persona] --home PATH --project-dir PATH
+uv run panmind init [persona] --home PATH --project-dir PATH
                                           # onboard: import CLAUDE.md + the active output
                                           # style into persona's user level, set default
-uv run helios-mcp status                 # print resolved profiles, evidence, pending proposals
-uv run helios-mcp negotiate <persona>    # show a drift report and accept/reject it
-uv run helios-mcp persona default [name] # show, or set, the default persona
-uv run helios-mcp render [persona]       # write rendered/<persona>.md (SessionStart context)
-uv run helios-mcp export <persona> --format yaml|json|soulspec
-uv run helios-mcp import <path> --persona NAME
-uv run helios-mcp ingest --persona NAME --session-id ID --transcript PATH [--final]
+uv run panmind status                    # print resolved profiles, evidence, pending proposals
+uv run panmind negotiate <persona>       # show a drift report and accept/reject it
+uv run panmind persona default [name]    # show, or set, the default persona
+uv run panmind render [persona]          # write rendered/<persona>.md (SessionStart context)
+uv run panmind export <persona> --format yaml|json|soulspec
+uv run panmind import <path> --persona NAME
+uv run panmind ingest --persona NAME --session-id ID --transcript PATH [--final]
                                           # internal: labels a transcript into the ledger, run by the plugin's hooks
 ```
 
@@ -188,12 +188,12 @@ uv run helios-mcp ingest --persona NAME --session-id ID --transcript PATH [--fin
 
 | Variable | Effect |
 |---|---|
-| `HELIOS_DIR` | Where profiles, the ledger and proposals live. Default `~/.helios`. |
-| `HELIOS_SOURCE` | Local checkout path for `uvx --from`, so the plugin's `.mcp.json` can run an unpublished build. |
-| `HELIOS_LLM` | Set to `0` to skip the Haiku batch labeler; heuristic labels stay authoritative. Same as `llm: false` in `HELIOS_DIR/config.yaml`. |
-| `HELIOS_PERSONA` | Overrides persona resolution in the plugin's hooks, ahead of a `.helios-persona` file or the stored default. |
-| `HELIOS_DISABLE` | Set to `1` to make every hook and the Haiku subprocess a no-op. The labeler subprocess sets this on itself so it never re-triggers Helios's own hooks. |
-| `HELIOS_TRUST_HEADLESS` | Set to `1` to make a headless `claude -p` session's user turns count as the person's own feedback instead of machine input. For scripted lab sessions only; system, notification, peer, coordinator and scheduled input are still always treated as machine input regardless of this variable. |
+| `PANMIND_DIR` | Where profiles, the ledger and proposals live. Default `~/.panmind`. |
+| `PANMIND_SOURCE` | Local checkout path for `uvx --from`, so the plugin's `.mcp.json` can run an unpublished build. |
+| `PANMIND_LLM` | Set to `0` to skip the Haiku batch labeler; heuristic labels stay authoritative. Same as `llm: false` in `PANMIND_DIR/config.yaml`. |
+| `PANMIND_PERSONA` | Overrides persona resolution in the plugin's hooks, ahead of a `.panmind-persona` file or the stored default. |
+| `PANMIND_DISABLE` | Set to `1` to make every hook and the Haiku subprocess a no-op. The labeler subprocess sets this on itself so it never re-triggers PanMind's own hooks. |
+| `PANMIND_TRUST_HEADLESS` | Set to `1` to make a headless `claude -p` session's user turns count as the person's own feedback instead of machine input. For scripted lab sessions only; system, notification, peer, coordinator and scheduled input are still always treated as machine input regardless of this variable. |
 
 ## Project status
 
@@ -203,7 +203,7 @@ extensive test suite (see the [CI workflow](.github/workflows/ci.yml) for the
 current pass/fail state, since a hardcoded count in prose goes stale). Hook
 capture, transcript labeling, declared-artifact import, per-model fingerprint
 tracking, and plugin packaging are wired end to end and have run against the
-founder's own real session history. The package is at `0.5.0b1` and
+founder's own real session history. The package is at `0.5.0` and
 classified as beta: it's not yet on PyPI or the Anthropic plugin marketplace,
 and long-running, ongoing dogfooding is still open.
 
@@ -215,4 +215,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, running tests
 
 ## License
 
-MIT © 2025 Anthony Kougkas. See [`LICENSE`](LICENSE).
+Copyright 2025-2026 PanStudio. Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from helios_mcp.hierarchy import IdentityHierarchy
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.taxonomy import list_dimensions
+from panmind.hierarchy import IdentityHierarchy
+from panmind.profile import BehavioralProfile
+from panmind.taxonomy import list_dimensions
 
 _ALL_DIMS = list_dimensions()
 
@@ -15,13 +15,13 @@ def _write_profile(path: Path, profile: BehavioralProfile) -> None:
     profile.save(path)
 
 
-def _make_helios_dir(tmp_path: Path) -> Path:
-    helios = tmp_path / ".helios"
-    (helios / "base").mkdir(parents=True, exist_ok=True)
-    (helios / "personas").mkdir(parents=True, exist_ok=True)
-    (helios / "temporary").mkdir(parents=True, exist_ok=True)
-    (helios / "learned").mkdir(parents=True, exist_ok=True)
-    return helios
+def _make_panmind_dir(tmp_path: Path) -> Path:
+    panmind = tmp_path / ".panmind"
+    (panmind / "base").mkdir(parents=True, exist_ok=True)
+    (panmind / "personas").mkdir(parents=True, exist_ok=True)
+    (panmind / "temporary").mkdir(parents=True, exist_ok=True)
+    (panmind / "learned").mkdir(parents=True, exist_ok=True)
+    return panmind
 
 
 def _sums_to_one(profile: BehavioralProfile) -> bool:
@@ -37,29 +37,29 @@ def _sums_to_one(profile: BehavioralProfile) -> bool:
 
 class TestResolveSpeciesOnly:
     def test_returns_species_profile_when_no_persona(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("developer")
 
         assert result is not None
         assert result.agent_id == "base"
 
     def test_missing_species_falls_back_to_default_species(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         # No identity.yaml written
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("nobody")
         assert result.agent_id == "base"
         assert result.level == "species"
 
     def test_resolve_without_persona_all_dims_present(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
-        hierarchy = IdentityHierarchy(helios)
+        _write_profile(panmind / "base" / "identity.yaml", species)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("no_persona")
         for dim in _ALL_DIMS:
             assert dim in result.distributions
@@ -71,9 +71,9 @@ class TestResolveSpeciesOnly:
 
 class TestResolveWithPersona:
     def test_returns_blended_profile_with_persona_agent_id(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
         developer = BehavioralProfile(
             agent_id="developer",
@@ -86,18 +86,18 @@ class TestResolveWithPersona:
             specialization_level=2,
             base_importance=0.7,
         )
-        _write_profile(helios / "personas" / "developer.yaml", developer)
+        _write_profile(panmind / "personas" / "developer.yaml", developer)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("developer")
         assert result.agent_id == "developer"
 
     def test_blended_distributions_sum_to_one(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
-        from helios_mcp.distribution import BehavioralDistribution
+        from panmind.distribution import BehavioralDistribution
         persona = BehavioralProfile(
             agent_id="researcher",
             level="domain",
@@ -124,9 +124,9 @@ class TestResolveWithPersona:
             specialization_level=2,
             base_importance=0.7,
         )
-        _write_profile(helios / "personas" / "researcher.yaml", persona)
+        _write_profile(panmind / "personas" / "researcher.yaml", persona)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("researcher")
         assert _sums_to_one(result)
 
@@ -138,9 +138,9 @@ class TestResolveWithPersona:
 class TestBlendWeightFormula:
     def test_weight_formula_basic(self, tmp_path: Path) -> None:
         """w = base_importance / spec_level^2 should be in [0.01, 1.0]."""
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
         # persona with spec_level=2, base_importance=0.7 => raw_weight = 0.175
         persona = BehavioralProfile(
@@ -150,9 +150,9 @@ class TestBlendWeightFormula:
             specialization_level=2,
             base_importance=0.7,
         )
-        _write_profile(helios / "personas" / "testpersona.yaml", persona)
+        _write_profile(panmind / "personas" / "testpersona.yaml", persona)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("testpersona")
         # Result should be different from pure species (blended)
         # and distributions should still sum to 1
@@ -160,9 +160,9 @@ class TestBlendWeightFormula:
 
     def test_very_high_spec_level_clamped_to_min_weight(self, tmp_path: Path) -> None:
         """spec_level=1000 => raw_weight=0.0000007 < 0.01 => clamped to 0.01."""
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
         persona = BehavioralProfile(
             agent_id="ultra_specialized",
@@ -171,17 +171,17 @@ class TestBlendWeightFormula:
             specialization_level=1000,
             base_importance=0.7,
         )
-        _write_profile(helios / "personas" / "ultra_specialized.yaml", persona)
+        _write_profile(panmind / "personas" / "ultra_specialized.yaml", persona)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("ultra_specialized")
         assert _sums_to_one(result)
 
     def test_spec_level_one_max_weight_clamped(self, tmp_path: Path) -> None:
         """spec_level=1, base_importance=1.0 => raw_weight=1.0 => clamped to 1.0."""
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
         persona = BehavioralProfile(
             agent_id="nospec",
@@ -190,9 +190,9 @@ class TestBlendWeightFormula:
             specialization_level=1,
             base_importance=1.0,
         )
-        _write_profile(helios / "personas" / "nospec.yaml", persona)
+        _write_profile(panmind / "personas" / "nospec.yaml", persona)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("nospec")
         assert _sums_to_one(result)
 
@@ -203,21 +203,21 @@ class TestBlendWeightFormula:
 
 class TestMissingLevelsSkipped:
     def test_no_user_or_session_file_does_not_raise(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         # Should not raise even though user+session files are absent
         result = hierarchy.resolve("nobody")
         assert result is not None
 
     def test_result_has_all_dimensions_when_levels_missing(self, tmp_path: Path) -> None:
-        helios = _make_helios_dir(tmp_path)
+        panmind = _make_panmind_dir(tmp_path)
         species = BehavioralProfile.default_species()
-        _write_profile(helios / "base" / "identity.yaml", species)
+        _write_profile(panmind / "base" / "identity.yaml", species)
 
-        hierarchy = IdentityHierarchy(helios)
+        hierarchy = IdentityHierarchy(panmind)
         result = hierarchy.resolve("nobody")
         for dim in _ALL_DIMS:
             assert dim in result.distributions
@@ -226,9 +226,9 @@ class TestMissingLevelsSkipped:
 def test_child_passes_undeclared_dimensions_through_and_can_be_authoritative(
     tmp_path: Path,
 ) -> None:
-    from helios_mcp.distribution import BehavioralDistribution
-    from helios_mcp.hierarchy import IdentityHierarchy
-    from helios_mcp.profile import BehavioralProfile
+    from panmind.distribution import BehavioralDistribution
+    from panmind.hierarchy import IdentityHierarchy
+    from panmind.profile import BehavioralProfile
 
     species = BehavioralProfile.default_species()
     species.save(tmp_path / "base" / "identity.yaml")

@@ -12,8 +12,8 @@ import pytest
 from packaging.version import Version
 
 REPO_ROOT = Path(__file__).parent.parent
-PLUGIN_DIR = REPO_ROOT / "helios-plugin"
-SKILL_DIR = REPO_ROOT / "helios-skill"
+PLUGIN_DIR = REPO_ROOT / "panmind-plugin"
+SKILL_DIR = REPO_ROOT / "panmind-skill"
 
 # Deliberately no plain "does this file/dir exist" test class here: every
 # fixture below (manifest, hooks, skill_content, ...) reads the same paths
@@ -23,7 +23,7 @@ SKILL_DIR = REPO_ROOT / "helios-skill"
 
 def _pyproject_version_as_manifest_version() -> str:
     """pyproject.toml is the single source of truth for the package
-    version (see helios_mcp/__init__.py's _get_version). JSON plugin
+    version (see panmind/__init__.py's _get_version). JSON plugin
     manifests can't import that at load time, so this converts PEP 440
     (what pyproject.toml uses, e.g. "0.4.0b2") to the dotted pre-release
     form the manifests use (e.g. "0.4.0-beta.2"), for tests to assert the
@@ -50,7 +50,7 @@ class TestPluginManifest:
         return json.loads(path.read_text())
 
     def test_has_name(self, manifest):
-        assert manifest["name"] == "helios"
+        assert manifest["name"] == "panmind"
 
     def test_has_version(self, manifest):
         assert "version" in manifest
@@ -133,11 +133,11 @@ class TestHooksConfig:
         assert "Notification" in hooks["hooks"]
 
     def test_no_pre_tool_blocking(self, hooks):
-        """Helios is observe-only. No PreToolUse hooks that could block."""
+        """PanMind is observe-only. No PreToolUse hooks that could block."""
         assert "PreToolUse" not in hooks["hooks"]
 
     def test_no_permission_request_blocking(self, hooks):
-        """Helios is observe-only. No PermissionRequest hooks."""
+        """PanMind is observe-only. No PermissionRequest hooks."""
         assert "PermissionRequest" not in hooks["hooks"]
 
     def test_all_hooks_are_command_type(self, hooks):
@@ -219,21 +219,21 @@ class TestMCPConfig:
 
     def test_uses_mcp_servers_envelope(self, mcp):
         """A plugin's .mcp.json must be {"mcpServers": {...}}, not a flat
-        {"helios": {...}}. The flat shape isn't a valid server
+        {"panmind": {...}}. The flat shape isn't a valid server
         registration and Claude Code silently fails to load it."""
         assert "mcpServers" in mcp
-        assert "helios" not in mcp
+        assert "panmind" not in mcp
 
-    def test_has_helios_server(self, mcp):
-        assert "helios" in mcp["mcpServers"]
+    def test_has_panmind_server(self, mcp):
+        assert "panmind" in mcp["mcpServers"]
 
     def test_uses_uvx_with_source_fallback(self, mcp):
-        server = mcp["mcpServers"]["helios"]
+        server = mcp["mcpServers"]["panmind"]
         assert server["command"] == "uvx"
-        assert "helios-mcp" in server["args"]
-        # ${HELIOS_SOURCE:-helios-mcp}: a local worktree during
+        assert "panmind" in server["args"]
+        # ${PANMIND_SOURCE:-panmind}: a local worktree during
         # development, the published PyPI package once it exists.
-        assert "${HELIOS_SOURCE:-helios-mcp}" in server["args"]
+        assert "${PANMIND_SOURCE:-panmind}" in server["args"]
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +245,7 @@ class TestMarketplaceManifest:
     """The manifest lives at REPO_ROOT/.claude-plugin/marketplace.json, not
     under a nested marketplace/ directory. A marketplace plugin's `source`
     must resolve inside the marketplace's own root, so the root has to be
-    the ancestor that actually contains helios-plugin/. A source that
+    the ancestor that actually contains panmind-plugin/. A source that
     escapes it (a `../` path or a symlink to one) is rejected at install;
     confirmed via `claude plugin validate` and the Claude Code marketplace
     docs."""
@@ -255,12 +255,12 @@ class TestMarketplaceManifest:
         path = REPO_ROOT / ".claude-plugin" / "marketplace.json"
         return json.loads(path.read_text())
 
-    def test_helios_entry_version_matches_pyproject(self, manifest):
-        entry = next(p for p in manifest["plugins"] if p["name"] == "helios")
+    def test_panmind_entry_version_matches_pyproject(self, manifest):
+        entry = next(p for p in manifest["plugins"] if p["name"] == "panmind")
         assert entry["version"] == _pyproject_version_as_manifest_version()
 
-    def test_helios_plugin_source_stays_inside_marketplace_root(self, manifest):
-        entry = next(p for p in manifest["plugins"] if p["name"] == "helios")
+    def test_panmind_plugin_source_stays_inside_marketplace_root(self, manifest):
+        entry = next(p for p in manifest["plugins"] if p["name"] == "panmind")
         source = entry["source"]
         assert not source.startswith("..")
         assert "/../" not in source
@@ -273,7 +273,7 @@ class TestMarketplaceManifest:
         that itself escapes the marketplace root, so this checks that it
         isn't a symlink to begin with, not just a plain directory that
         happens to resolve in-bounds today."""
-        entry = next(p for p in manifest["plugins"] if p["name"] == "helios")
+        entry = next(p for p in manifest["plugins"] if p["name"] == "panmind")
         assert not (REPO_ROOT / entry["source"]).is_symlink()
 
 
@@ -285,7 +285,7 @@ class TestMarketplaceManifest:
 class TestSkillDefinition:
     @pytest.fixture
     def skill_content(self):
-        return (PLUGIN_DIR / "skills" / "helios" / "SKILL.md").read_text()
+        return (PLUGIN_DIR / "skills" / "panmind" / "SKILL.md").read_text()
 
     def test_has_yaml_frontmatter(self, skill_content):
         assert skill_content.startswith("---\n")
@@ -294,7 +294,7 @@ class TestSkillDefinition:
         assert len(parts) >= 3, "SKILL.md must have YAML frontmatter with opening and closing ---"
 
     def test_frontmatter_has_name(self, skill_content):
-        assert "name: helios" in skill_content
+        assert "name: panmind" in skill_content
 
     def test_frontmatter_has_description(self, skill_content):
         assert "description:" in skill_content
@@ -309,15 +309,15 @@ class TestSkillDefinition:
         assert "allowed-tools:" in skill_content
 
     def test_has_activation_triggers(self, skill_content):
-        assert "/helios" in skill_content
-        assert "/helios status" in skill_content
-        assert "/helios drift" in skill_content
+        assert "/panmind" in skill_content
+        assert "/panmind status" in skill_content
+        assert "/panmind drift" in skill_content
 
     def test_has_arguments_routing(self, skill_content):
         assert "$ARGUMENTS" in skill_content
 
     def test_has_dynamic_context_injection(self, skill_content):
-        assert "!`helios-mcp" in skill_content
+        assert "!`panmind" in skill_content
 
     def test_has_mcp_tool_guidance(self, skill_content):
         assert "get_behavioral_context" in skill_content
@@ -348,7 +348,7 @@ class TestSkillDefinition:
 class TestObserverAgent:
     @pytest.fixture
     def agent_content(self):
-        return (PLUGIN_DIR / "agents" / "helios-observer.md").read_text()
+        return (PLUGIN_DIR / "agents" / "panmind-observer.md").read_text()
 
     def test_has_capabilities(self, agent_content):
         assert "get_behavioral_context" in agent_content
@@ -374,9 +374,9 @@ class TestStandaloneSkill:
         same server configured directly (as this standalone skill's own
         .mcp.json does) is named mcp__<server>__<tool>. See the matching,
         more detailed test in test_readiness.py::TestStandaloneSkillReadiness."""
-        plugin_skill = (PLUGIN_DIR / "skills" / "helios" / "SKILL.md").read_text()
+        plugin_skill = (PLUGIN_DIR / "skills" / "panmind" / "SKILL.md").read_text()
         standalone_skill = (SKILL_DIR / "SKILL.md").read_text()
-        normalized_plugin = plugin_skill.replace("mcp__plugin_helios_helios__", "mcp__helios__")
+        normalized_plugin = plugin_skill.replace("mcp__plugin_panmind_panmind__", "mcp__panmind__")
         assert normalized_plugin == standalone_skill
 
     def test_mcp_json_matches_plugin(self):

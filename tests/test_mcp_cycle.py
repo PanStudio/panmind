@@ -1,7 +1,7 @@
 """End-to-end MCP protocol cycle through a real in-memory fastmcp.Client.
 
 Every call here goes through the actual MCP tool-call wire shape (arguments
-as a plain dict in, a CallToolResult out), not HeliosService directly, so a
+as a plain dict in, a CallToolResult out), not PanMindService directly, so a
 gap between what server.py exposes and what service.py actually does would
 show up here even if each side's own unit tests pass. server.py and
 service.py are core's files; defects found here get reported to core as
@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 from fastmcp import Client
 
-from helios_mcp.server import create_server
-from helios_mcp.taxonomy import list_dimensions
+from panmind.server import create_server
+from panmind.taxonomy import list_dimensions
 
 # A reply the heuristic classifier reads as thorough/verbose, paired with a
 # correction endorsement.py maps straight to communication_register=terse
@@ -36,8 +36,8 @@ MAX_CORRECTION_TURNS = 25
 TRAVERSAL_PERSONA_NAMES = ["../../etc/passwd", "..", ".", "a/b", "~root"]
 
 
-async def _client(helios_dir: Path) -> Client:
-    server = await create_server(helios_dir)
+async def _client(panmind_dir: Path) -> Client:
+    server = await create_server(panmind_dir)
     return Client(server)
 
 
@@ -74,8 +74,8 @@ class TestFullMCPCycle:
     context reflects the accepted target -> export -> import."""
 
     async def test_full_cycle_accept(self, tmp_path):
-        helios_dir = tmp_path / "helios"
-        async with await _client(helios_dir) as client:
+        panmind_dir = tmp_path / "panmind"
+        async with await _client(panmind_dir) as client:
             personas = (await client.call_tool("list_personas", {})).structured_content
             assert personas["status"] == "success"
             assert "developer" in personas["personas"]
@@ -162,13 +162,13 @@ class TestFullMCPCycle:
             assert imported["status"] == "success"
             assert imported["persona"] == "developer-clone"
             assert set(imported["distributions"]) == set(list_dimensions())
-            assert (helios_dir / "personas" / "developer-clone.yaml").is_file()
+            assert (panmind_dir / "personas" / "developer-clone.yaml").is_file()
 
 
 class TestRejectPathAndCooldown:
     async def test_reject_records_decision_and_suppresses_reproposal(self, tmp_path):
-        helios_dir = tmp_path / "helios"
-        async with await _client(helios_dir) as client:
+        panmind_dir = tmp_path / "panmind"
+        async with await _client(panmind_dir) as client:
             proposal_id, _ = await _drive_to_proposal(
                 client, "researcher", "cycle-reject"
             )
@@ -205,8 +205,8 @@ class TestRejectPathAndCooldown:
             assert after["proposal_id"] is None
 
     async def test_unknown_proposal_id_errors_cleanly(self, tmp_path):
-        helios_dir = tmp_path / "helios"
-        async with await _client(helios_dir) as client:
+        panmind_dir = tmp_path / "panmind"
+        async with await _client(panmind_dir) as client:
             result = await client.call_tool(
                 "negotiate_update",
                 {
@@ -220,8 +220,8 @@ class TestRejectPathAndCooldown:
             assert sc["message"]
 
     async def test_unknown_decision_errors_cleanly(self, tmp_path):
-        helios_dir = tmp_path / "helios"
-        async with await _client(helios_dir) as client:
+        panmind_dir = tmp_path / "panmind"
+        async with await _client(panmind_dir) as client:
             result = await client.call_tool(
                 "negotiate_update",
                 {
@@ -237,35 +237,35 @@ class TestRejectPathAndCooldown:
 class TestPathTraversalPersonaNames:
     """Every tool that accepts a persona_name must reject a traversal
     attempt cleanly (status: error) and must never write outside
-    helios_dir while doing it."""
+    panmind_dir while doing it."""
 
     @pytest.fixture
     async def sandboxed_client(self, tmp_path):
-        helios_dir = tmp_path / "helios"
-        async with await _client(helios_dir) as client:
-            yield client, helios_dir, tmp_path
+        panmind_dir = tmp_path / "panmind"
+        async with await _client(panmind_dir) as client:
+            yield client, panmind_dir, tmp_path
 
     @staticmethod
-    def _assert_contained(tmp_path: Path, helios_dir: Path) -> None:
-        """Every file under tmp_path must be inside helios_dir (or the
+    def _assert_contained(tmp_path: Path, panmind_dir: Path) -> None:
+        """Every file under tmp_path must be inside panmind_dir (or the
         fixed import_src scratch dir this class never uses), proving a
-        malicious persona_name never escaped HELIOS_DIR."""
+        malicious persona_name never escaped PANMIND_DIR."""
         for p in tmp_path.rglob("*"):
             if p.is_file():
-                assert p.is_relative_to(helios_dir), f"escaped write: {p}"
+                assert p.is_relative_to(panmind_dir), f"escaped write: {p}"
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_get_behavioral_context(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         result = await client.call_tool(
             "get_behavioral_context", {"persona_name": bad_name}
         )
         assert result.structured_content["status"] == "error"
-        self._assert_contained(tmp_path, helios_dir)
+        self._assert_contained(tmp_path, panmind_dir)
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_observe_interaction(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         result = await client.call_tool(
             "observe_interaction",
             {
@@ -274,39 +274,39 @@ class TestPathTraversalPersonaNames:
             },
         )
         assert result.structured_content["status"] == "error"
-        self._assert_contained(tmp_path, helios_dir)
+        self._assert_contained(tmp_path, panmind_dir)
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_get_drift_report(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         result = await client.call_tool(
             "get_drift_report", {"persona_name": bad_name}
         )
         assert result.structured_content["status"] == "error"
-        self._assert_contained(tmp_path, helios_dir)
+        self._assert_contained(tmp_path, panmind_dir)
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_negotiate_update(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         result = await client.call_tool(
             "negotiate_update",
             {"proposal_id": "x", "decision": "accept", "persona_name": bad_name},
         )
         assert result.structured_content["status"] == "error"
-        self._assert_contained(tmp_path, helios_dir)
+        self._assert_contained(tmp_path, panmind_dir)
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_export_profile(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         result = await client.call_tool(
             "export_profile", {"persona_name": bad_name}
         )
         assert result.structured_content["status"] == "error"
-        self._assert_contained(tmp_path, helios_dir)
+        self._assert_contained(tmp_path, panmind_dir)
 
     @pytest.mark.parametrize("bad_name", TRAVERSAL_PERSONA_NAMES)
     async def test_import_profile(self, sandboxed_client, bad_name):
-        client, helios_dir, tmp_path = sandboxed_client
+        client, panmind_dir, tmp_path = sandboxed_client
         source_dir = tmp_path / "import_src"
         source_dir.mkdir(exist_ok=True)
         source_file = source_dir / f"src-{abs(hash(bad_name))}.md"
@@ -316,17 +316,17 @@ class TestPathTraversalPersonaNames:
             {"source_path": str(source_file), "persona_name": bad_name},
         )
         assert result.structured_content["status"] == "error"
-        # import_profile legitimately writes outside helios_dir (the
+        # import_profile legitimately writes outside panmind_dir (the
         # source file the test itself just planted), so contain the check
-        # to helios_dir's own subtree rather than reusing _assert_contained.
-        for p in helios_dir.rglob("*"):
+        # to panmind_dir's own subtree rather than reusing _assert_contained.
+        for p in panmind_dir.rglob("*"):
             if p.is_file():
                 assert "etc" not in p.parts and "passwd" not in p.name
 
     async def test_empty_persona_name_falls_back_to_default(self, sandboxed_client):
         """Not a traversal case, but the boundary right next to it: an
         empty string must resolve to the configured default, not error."""
-        client, _helios_dir, _tmp_path = sandboxed_client
+        client, _panmind_dir, _tmp_path = sandboxed_client
         result = await client.call_tool("get_behavioral_context", {"persona_name": ""})
         sc = result.structured_content
         assert sc["status"] == "success"

@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.profile import SCHEMA_VERSION, BehavioralProfile
-from helios_mcp.taxonomy import list_dimensions
+from panmind.distribution import BehavioralDistribution
+from panmind.profile import SCHEMA_VERSION, BehavioralProfile
+from panmind.taxonomy import list_dimensions
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -2,8 +2,8 @@
 
 import pytest
 
-from helios_mcp.security import InvalidInputError
-from helios_mcp.store import (
+from panmind.security import InvalidInputError
+from panmind.store import (
     ObservationStore,
     ProposalStore,
     ProposedChange,

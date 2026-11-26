@@ -1,4 +1,4 @@
-# Contributing to helios-mcp
+# Contributing to PanMind
 
 ## Setup
 

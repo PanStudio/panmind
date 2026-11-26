@@ -1,13 +1,13 @@
-"""Tests for BehavioralDistribution — the core scientific data type of Helios v2."""
+"""Tests for BehavioralDistribution — the core scientific data type of PanMind v2."""
 
 import math
 
 import pytest
 
-from helios_mcp.distribution import (
+from panmind.distribution import (
     BehavioralDistribution,
 )
-from helios_mcp.taxonomy import list_dimensions, list_states
+from panmind.taxonomy import list_dimensions, list_states
 
 # ---------------------------------------------------------------------------
 # Fixtures

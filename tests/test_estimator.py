@@ -4,9 +4,9 @@ import math
 
 import pytest
 
-from helios_mcp.drift import DEFAULT_CONFIG, DriftConfig
-from helios_mcp.estimator import estimate, estimate_ledger
-from helios_mcp.store import (
+from panmind.drift import DEFAULT_CONFIG, DriftConfig
+from panmind.estimator import estimate, estimate_ledger
+from panmind.store import (
     ObservationStore,
     Proposal,
     ProposedChange,

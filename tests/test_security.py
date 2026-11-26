@@ -1,10 +1,10 @@
 """Persona name and path validation: the boundary that keeps writes inside
-HELIOS_DIR. Every case here is a concrete attack a persona_name argument
+PANMIND_DIR. Every case here is a concrete attack a persona_name argument
 from an untrusted MCP caller could carry."""
 
 import pytest
 
-from helios_mcp.security import (
+from panmind.security import (
     InvalidInputError,
     PathTraversalError,
     persona_path,

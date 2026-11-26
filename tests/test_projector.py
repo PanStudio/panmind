@@ -8,17 +8,17 @@ import json
 
 import pytest
 
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.importer import import_from_text
-from helios_mcp.llm import build_taxonomy_description
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.projector import (
+from panmind.distribution import BehavioralDistribution
+from panmind.importer import import_from_text
+from panmind.llm import build_taxonomy_description
+from panmind.profile import BehavioralProfile
+from panmind.projector import (
     build_projection_prompt,
     parse_projection_response,
     project_with_llm,
     validate_and_normalize,
 )
-from helios_mcp.taxonomy import list_dimensions, list_states
+from panmind.taxonomy import list_dimensions, list_states
 
 # ---------------------------------------------------------------------------
 # Prompt construction
@@ -348,7 +348,7 @@ class TestAddressed:
         assert "sycophancy" not in profile.declared_dimensions
 
     def test_import_declared_records_the_model_list(self, tmp_path):
-        from helios_mcp.importer import import_declared
+        from panmind.importer import import_declared
 
         src = tmp_path / "CLAUDE.md"
         src.write_text("# Style\nWrite in prose, no bullets.\n")

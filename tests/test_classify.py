@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from helios_mcp.classify import (
+from panmind.classify import (
     classify_narration,
     classify_pushback,
     classify_specificity,
@@ -16,8 +16,8 @@ from helios_mcp.classify import (
     is_inspection,
     is_mutating,
 )
-from helios_mcp.taxonomy import list_states
-from helios_mcp.transcript import AgentTurn, ToolCall, UserInput
+from panmind.taxonomy import list_states
+from panmind.transcript import AgentTurn, ToolCall, UserInput
 
 
 def _turn(text: str = "", calls: list[tuple[str, dict[str, Any]]] | None = None) -> AgentTurn:
