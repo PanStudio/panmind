@@ -7,15 +7,15 @@ and the full import pipeline.
 
 import pytest
 
-from helios_mcp.importer import (
+from panmind.importer import (
     detect_format,
     extract_text_blocks,
     import_from_markdown,
     import_from_text,
     keyword_project,
 )
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.taxonomy import list_dimensions, list_states
+from panmind.profile import BehavioralProfile
+from panmind.taxonomy import list_dimensions, list_states
 
 # ---------------------------------------------------------------------------
 # Format detection

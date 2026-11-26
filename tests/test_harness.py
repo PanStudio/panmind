@@ -1,26 +1,26 @@
-"""BehavioralHarness over HeliosService."""
+"""BehavioralHarness over PanMindService."""
 
 from pathlib import Path
 
 import pytest
 
-from helios_mcp.harness import BehavioralHarness
+from panmind.harness import BehavioralHarness
 
 
 @pytest.fixture()
-def helios_dir(tmp_path: Path) -> Path:
-    return tmp_path / "helios"
+def panmind_dir(tmp_path: Path) -> Path:
+    return tmp_path / "panmind"
 
 
-def test_context_is_the_rendered_persona_profile(helios_dir):
-    ctx = BehavioralHarness("developer", helios_dir).get_context()
+def test_context_is_the_rendered_persona_profile(panmind_dir):
+    ctx = BehavioralHarness("developer", panmind_dir).get_context()
     assert "'developer'" in ctx
     assert "Epistemic style" in ctx
 
 
-def test_decorator_injects_system_and_preserves_metadata(helios_dir):
+def test_decorator_injects_system_and_preserves_metadata(panmind_dir):
     captured: list[str] = []
-    harness = BehavioralHarness("developer", helios_dir, observe_every=1000)
+    harness = BehavioralHarness("developer", panmind_dir, observe_every=1000)
 
     @harness
     def agent(messages, system=""):
@@ -33,22 +33,22 @@ def test_decorator_injects_system_and_preserves_metadata(helios_dir):
     assert "Epistemic style" in captured[0]
 
 
-def test_invalid_persona_is_rejected(helios_dir):
-    from helios_mcp.security import SecurityError
+def test_invalid_persona_is_rejected(panmind_dir):
+    from panmind.security import SecurityError
 
     with pytest.raises(SecurityError):
-        BehavioralHarness("../x", helios_dir)
+        BehavioralHarness("../x", panmind_dir)
 
 
-def test_fresh_harness_does_not_recommend_negotiation(helios_dir):
-    harness = BehavioralHarness("developer", helios_dir)
+def test_fresh_harness_does_not_recommend_negotiation(panmind_dir):
+    harness = BehavioralHarness("developer", panmind_dir)
     assert harness.should_negotiate() is False
     assert harness.get_drift_summary() is None
 
 
-def test_repeated_observe_of_a_growing_conversation_is_idempotent(helios_dir):
-    pytest.importorskip("helios_mcp.ingest")
-    harness = BehavioralHarness("developer", helios_dir)
+def test_repeated_observe_of_a_growing_conversation_is_idempotent(panmind_dir):
+    pytest.importorskip("panmind.ingest")
+    harness = BehavioralHarness("developer", panmind_dir)
     convo = [{"role": "user", "content": "Refactor this."},
              {"role": "assistant", "content": "Done. I used a comprehension."},
              {"role": "user", "content": "Thanks. Now add a test."}]

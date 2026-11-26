@@ -7,8 +7,8 @@ from pathlib import Path
 
 import pytest
 
-from helios_mcp.importer import active_output_style, declared_sources, import_declared
-from helios_mcp.taxonomy import list_dimensions
+from panmind.importer import active_output_style, declared_sources, import_declared
+from panmind.taxonomy import list_dimensions
 
 STYLE = """---
 name: Peer Engineer

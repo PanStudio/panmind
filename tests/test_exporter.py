@@ -5,15 +5,15 @@ Covers all three export modes, SoulSpec format, and round-trip behavior.
 
 import pytest
 
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.exporter import (
+from panmind.distribution import BehavioralDistribution
+from panmind.exporter import (
     export_context,
     export_diff,
     export_dimensions,
     export_soulspec,
 )
-from helios_mcp.profile import BehavioralProfile
-from helios_mcp.taxonomy import list_states
+from panmind.profile import BehavioralProfile
+from panmind.taxonomy import list_states
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -181,7 +181,7 @@ class TestExportSoulspec:
         profile = _make_profile()
         md = export_soulspec(profile)
         assert "<!--" in md
-        assert "helios:" in md
+        assert "panmind:" in md
         assert "-->" in md
 
     def test_includes_distribution_values(self):

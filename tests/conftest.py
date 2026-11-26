@@ -1,4 +1,4 @@
-"""Shared fixtures for Helios MCP tests."""
+"""Shared fixtures for PanMind tests."""
 
 import tempfile
 from pathlib import Path
@@ -7,17 +7,17 @@ import pytest
 
 
 @pytest.fixture
-def temp_helios_dir():
-    """Create temporary Helios directory for testing."""
+def temp_panmind_dir():
+    """Create temporary PanMind directory for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        helios_path = Path(tmpdir) / ".helios"
-        helios_path.mkdir()
-        yield helios_path
+        panmind_path = Path(tmpdir) / ".panmind"
+        panmind_path.mkdir()
+        yield panmind_path
 
 
 @pytest.fixture(autouse=True)
 def _no_model_calls(monkeypatch):
     """Tests never spawn the model CLI; tests that exercise it inject a fake client."""
-    monkeypatch.setenv("HELIOS_LLM", "0")
+    monkeypatch.setenv("PANMIND_LLM", "0")
     # A lab shell's trust setting must not leak into provenance tests.
-    monkeypatch.delenv("HELIOS_TRUST_HEADLESS", raising=False)
+    monkeypatch.delenv("PANMIND_TRUST_HEADLESS", raising=False)

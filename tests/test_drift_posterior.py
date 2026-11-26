@@ -5,7 +5,7 @@ import math
 from hypothesis import given
 from hypothesis import strategies as st
 
-from helios_mcp.drift import (
+from panmind.drift import (
     LN2,
     DriftConfig,
     assess,

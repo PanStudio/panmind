@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from helios_mcp.llm import (
+from panmind.llm import (
     ClaudeCLIClient,
     batches,
     default_client,
@@ -18,7 +18,7 @@ from helios_mcp.llm import (
     parse_cli_output,
     render_turn,
 )
-from helios_mcp.transcript import parse_records
+from panmind.transcript import parse_records
 
 from .transcript_fixtures import TranscriptBuilder
 
@@ -37,7 +37,7 @@ def test_child_runs_lean_and_hook_free(tmp_path: Path):
     record = tmp_path / "record.json"
     exe = _fake_cli(tmp_path, f"""
 json.dump({{"argv": sys.argv[1:], "stdin": sys.stdin.read(),
-           "disable": os.environ.get("HELIOS_DISABLE"), "llm": os.environ.get("HELIOS_LLM"),
+           "disable": os.environ.get("PANMIND_DISABLE"), "llm": os.environ.get("PANMIND_LLM"),
            "thinking": os.environ.get("MAX_THINKING_TOKENS")}},
           open({str(record)!r}, "w"))
 print(json.dumps([{{"type": "system"}}, {RESULT!r}]))
@@ -73,15 +73,15 @@ def test_parse_cli_output_shapes():
 
 
 def test_opt_out_switches(tmp_path: Path, monkeypatch):
-    monkeypatch.setenv("HELIOS_LLM", "1")
+    monkeypatch.setenv("PANMIND_LLM", "1")
     assert llm_enabled(tmp_path)
     (tmp_path / "config.yaml").write_text("llm: false\n")
     assert not llm_enabled(tmp_path)
     assert llm_enabled(None)
-    monkeypatch.setenv("HELIOS_DISABLE", "1")
+    monkeypatch.setenv("PANMIND_DISABLE", "1")
     assert not llm_enabled(None)
-    monkeypatch.delenv("HELIOS_DISABLE")
-    monkeypatch.setenv("HELIOS_LLM", "0")
+    monkeypatch.delenv("PANMIND_DISABLE")
+    monkeypatch.setenv("PANMIND_LLM", "0")
     assert default_client() is None
 
 
@@ -171,9 +171,9 @@ def test_large_sessions_are_split_into_batches():
     assert sorted(i for g in groups for i in g) == list(range(len(turns)))
 
 
-@pytest.mark.skipif(os.environ.get("HELIOS_LIVE_LLM") != "1", reason="live model call")
+@pytest.mark.skipif(os.environ.get("PANMIND_LIVE_LLM") != "1", reason="live model call")
 def test_live_label_session(monkeypatch):
-    monkeypatch.setenv("HELIOS_LLM", "1")
+    monkeypatch.setenv("PANMIND_LLM", "1")
     client = default_client()
     assert client is not None
     out = label_session(_session(), client)

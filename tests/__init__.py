@@ -1,1 +1,1 @@
-"""Tests for Helios MCP."""
+"""Tests for PanMind."""

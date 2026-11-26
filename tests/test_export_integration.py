@@ -5,9 +5,9 @@ import json
 import pytest
 from click.testing import CliRunner
 
-from helios_mcp.cli import main
-from helios_mcp.distribution import BehavioralDistribution
-from helios_mcp.profile import BehavioralProfile
+from panmind.cli import main
+from panmind.distribution import BehavioralDistribution
+from panmind.profile import BehavioralProfile
 
 
 @pytest.fixture
@@ -16,9 +16,9 @@ def runner():
 
 
 @pytest.fixture
-def helios_dir(tmp_path):
-    """Set up a helios directory with a base identity and a developer persona."""
-    d = tmp_path / "helios"
+def panmind_dir(tmp_path):
+    """Set up a panmind directory with a base identity and a developer persona."""
+    d = tmp_path / "panmind"
 
     # Base identity
     base_dir = d / "base"
@@ -84,38 +84,38 @@ def helios_dir(tmp_path):
 
 
 class TestCLIExport:
-    def test_export_yaml(self, runner, helios_dir):
+    def test_export_yaml(self, runner, panmind_dir):
         result = runner.invoke(
-            main, ["export", "developer", "--helios-dir", str(helios_dir)],
+            main, ["export", "developer", "--panmind-dir", str(panmind_dir)],
         )
         assert result.exit_code == 0
         assert "epistemic_style" in result.output
         assert "interaction_agency" in result.output
 
-    def test_export_json(self, runner, helios_dir):
+    def test_export_json(self, runner, panmind_dir):
         result = runner.invoke(
             main, ["export", "developer", "--format", "json",
-                   "--helios-dir", str(helios_dir)],
+                   "--panmind-dir", str(panmind_dir)],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "dimensions" in data
         assert "epistemic_style" in data["dimensions"]
 
-    def test_export_soulspec(self, runner, helios_dir):
+    def test_export_soulspec(self, runner, panmind_dir):
         result = runner.invoke(
             main, ["export", "developer", "--format", "soulspec",
-                   "--helios-dir", str(helios_dir)],
+                   "--panmind-dir", str(panmind_dir)],
         )
         assert result.exit_code == 0
         assert "Epistemic Style" in result.output
         assert "<!--" in result.output
 
-    def test_export_specific_dimensions(self, runner, helios_dir):
+    def test_export_specific_dimensions(self, runner, panmind_dir):
         result = runner.invoke(
             main, ["export", "developer", "--format", "json",
                    "--dimensions", "epistemic_style,risk_caution",
-                   "--helios-dir", str(helios_dir)],
+                   "--panmind-dir", str(panmind_dir)],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -123,21 +123,21 @@ class TestCLIExport:
         assert "epistemic_style" in data["dimensions"]
         assert "risk_caution" in data["dimensions"]
 
-    def test_export_nonexistent_persona_falls_back(self, runner, helios_dir):
+    def test_export_nonexistent_persona_falls_back(self, runner, panmind_dir):
         """Nonexistent persona falls back to base profile via hierarchy."""
         result = runner.invoke(
             main, ["export", "nonexistent", "--format", "json",
-                   "--helios-dir", str(helios_dir)],
+                   "--panmind-dir", str(panmind_dir)],
         )
         # Hierarchy resolves to base if no persona-specific file exists
         if result.exit_code == 0:
             data = json.loads(result.output)
             assert "dimensions" in data
 
-    def test_export_invalid_dimension(self, runner, helios_dir):
+    def test_export_invalid_dimension(self, runner, panmind_dir):
         result = runner.invoke(
             main, ["export", "developer", "--format", "json",
                    "--dimensions", "bogus",
-                   "--helios-dir", str(helios_dir)],
+                   "--panmind-dir", str(panmind_dir)],
         )
         assert result.exit_code != 0

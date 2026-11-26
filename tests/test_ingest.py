@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from helios_mcp.estimator import estimate
-from helios_mcp.ingest import ingest_session, observations_from_messages
-from helios_mcp.store import ObservationStore, base_turn_id
-from helios_mcp.transcript import parse_timestamp
+from panmind.estimator import estimate
+from panmind.ingest import ingest_session, observations_from_messages
+from panmind.store import ObservationStore, base_turn_id
+from panmind.transcript import parse_timestamp
 
 from .transcript_fixtures import TranscriptBuilder
 
@@ -38,16 +38,16 @@ class FakeClient:
 def test_stop_ingest_is_idempotent_and_holds_back_the_open_turn(tmp_path: Path):
     b = _verbose_session_with_corrections(3)
     path = b.write(tmp_path / "s.jsonl")
-    helios = tmp_path / "helios"
+    panmind = tmp_path / "panmind"
     client = FakeClient()
 
-    first = ingest_session(helios, "dev", path, "s1", client=client)
+    first = ingest_session(panmind, "dev", path, "s1", client=client)
     assert first == 3  # the last turn has no reply yet
-    assert ingest_session(helios, "dev", path, "s1", client=client) == 0
+    assert ingest_session(panmind, "dev", path, "s1", client=client) == 0
     assert client.calls == 0  # Stop never calls the model
 
-    assert ingest_session(helios, "dev", path, "s1", final=True, client=client) == 1
-    rows = list(ObservationStore(helios).iter("dev"))
+    assert ingest_session(panmind, "dev", path, "s1", final=True, client=client) == 1
+    rows = list(ObservationStore(panmind).iter("dev"))
     assert [r.endorsement for r in rows] == [-1.0, -1.0, -1.0, None]
     assert all(r.correction_hint == {"communication_register": "terse"} for r in rows[:3])
     stamps = {parse_timestamp(rec["timestamp"]) for rec in b.records if rec.get("timestamp")}
@@ -58,10 +58,10 @@ def test_stop_ingest_is_idempotent_and_holds_back_the_open_turn(tmp_path: Path):
 
 
 def test_corrections_move_endorsed_register_toward_terse(tmp_path: Path):
-    helios = tmp_path / "helios"
+    panmind = tmp_path / "panmind"
     path = _verbose_session_with_corrections().write(tmp_path / "s.jsonl")
-    ingest_session(helios, "dev", path, "s1", final=True, client=FakeClient())
-    evidence = estimate(ObservationStore(helios).iter("dev"))
+    ingest_session(panmind, "dev", path, "s1", final=True, client=FakeClient())
+    evidence = estimate(ObservationStore(panmind).iter("dev"))
     endorsed = evidence.endorsed["communication_register"]
     fingerprint = evidence.fingerprint["communication_register"]
     assert max(endorsed, key=endorsed.__getitem__) == "terse"
@@ -80,9 +80,9 @@ def test_final_ingest_adds_model_rows_with_transcript_facts_enforced(tmp_path: P
              "interaction_agency": None, "communication_register": None, "risk_caution": None,
              "confidence": 0.8, "endorsement": 1, "correction_hint": {}}
     reply = {"turns": [{"id": "0", **label}, {"id": "1", **label}]}
-    helios = tmp_path / "helios"
-    ingest_session(helios, "dev", path, "s1", final=True, client=FakeClient(reply))
-    rows = list(ObservationStore(helios).iter("dev"))
+    panmind = tmp_path / "panmind"
+    ingest_session(panmind, "dev", path, "s1", final=True, client=FakeClient(reply))
+    rows = list(ObservationStore(panmind).iter("dev"))
     llm_rows = [r for r in rows if r.source == "llm"]
     assert [r.endorsement for r in llm_rows] == [-1.0, None]
     # Both sources carry the transcript's model id, for per-model fingerprints.
@@ -91,15 +91,15 @@ def test_final_ingest_adds_model_rows_with_transcript_facts_enforced(tmp_path: P
 
 
 def test_missing_or_truncated_transcripts(tmp_path: Path):
-    helios = tmp_path / "helios"
-    assert ingest_session(helios, "dev", tmp_path / "nope.jsonl", "s1", final=True) == 0
+    panmind = tmp_path / "panmind"
+    assert ingest_session(panmind, "dev", tmp_path / "nope.jsonl", "s1", final=True) == 0
     b = TranscriptBuilder()
     b.prompt("hi")
     b.say("Hello. The repo builds and tests pass.")
     path = b.write(tmp_path / "s.jsonl")
     with path.open("a") as fh:
         fh.write('{"type": "user", "message": {"role": "us')
-    assert ingest_session(helios, "dev", path, "s1", final=True) == 1
+    assert ingest_session(panmind, "dev", path, "s1", final=True) == 1
 
 
 def test_message_path_records_the_reply_when_the_conversation_is_resent(tmp_path: Path):
@@ -141,39 +141,39 @@ class CountingClient:
 
 
 def test_reply_to_the_last_turn_lands_when_a_session_is_resumed(tmp_path: Path):
-    helios = tmp_path / "helios"
+    panmind = tmp_path / "panmind"
     b = TranscriptBuilder()
     b.prompt("rename the module")
     b.tool("Bash", {"command": "git mv a.py b.py"}, "t1")
     b.result("t1")
     b.say("Renamed the module and updated every import that referenced it.")
     path = b.write(tmp_path / "s.jsonl")
-    ingest_session(helios, "dev", path, "s1", final=True)
+    ingest_session(panmind, "dev", path, "s1", final=True)
     b.prompt("no, too long. be terse")   # the session is resumed
     b.say("ok")
     b.write(path)
-    ingest_session(helios, "dev", path, "s1")
+    ingest_session(panmind, "dev", path, "s1")
 
-    ev = estimate(ObservationStore(helios).iter("dev"))
+    ev = estimate(ObservationStore(panmind).iter("dev"))
     assert ev.turns == 1
     assert ev.endorsed["communication_register"]["terse"] > 0
 
 
 def test_resumed_session_end_labels_only_new_turns(tmp_path: Path):
-    helios = tmp_path / "helios"
+    panmind = tmp_path / "panmind"
     b = _verbose_session_with_corrections(2)
     path = b.write(tmp_path / "s.jsonl")
     client = CountingClient()
-    ingest_session(helios, "dev", path, "s1", final=True, client=client)
+    ingest_session(panmind, "dev", path, "s1", final=True, client=client)
     b.prompt("one more thing")
     b.say("Done again.")
     b.write(path)
-    ingest_session(helios, "dev", path, "s1", final=True, client=client)
-    ingest_session(helios, "dev", path, "s1", final=True, client=client)
+    ingest_session(panmind, "dev", path, "s1", final=True, client=client)
+    ingest_session(panmind, "dev", path, "s1", final=True, client=client)
     # The turn the first run ended on was open; its reply now exists, so it
     # goes back once with the new turn, and nothing goes back a third time.
     assert client.seen == [3, 2]
-    llm_ids = [r.turn_id for r in ObservationStore(helios).iter("dev") if r.source == "llm"]
+    llm_ids = [r.turn_id for r in ObservationStore(panmind).iter("dev") if r.source == "llm"]
     assert len(llm_ids) == len(set(llm_ids)) == 5
     assert len({base_turn_id(t) for t in llm_ids}) == 4
 
@@ -191,9 +191,9 @@ def test_model_hints_need_a_human_reply_and_opener_hints_come_from_the_lexicon(t
              "confidence": 0.8, "endorsement": 0.5,
              "correction_hint": {"communication_register": {"state": "terse", "quote": "keep it short"}}}
     reply = {"turns": [{"id": "0", **label}, {"id": "1", **label}]}
-    helios = tmp_path / "helios"
-    ingest_session(helios, "dev", path, "s1", final=True, client=FakeClient(reply))
-    opener, last = [r for r in ObservationStore(helios).iter("dev") if r.source == "llm"]
+    panmind = tmp_path / "panmind"
+    ingest_session(panmind, "dev", path, "s1", final=True, client=FakeClient(reply))
+    opener, last = [r for r in ObservationStore(panmind).iter("dev") if r.source == "llm"]
     assert opener.correction_hint == {
         "communication_register": "terse",
         "interaction_agency": "asks_first",
@@ -203,12 +203,12 @@ def test_model_hints_need_a_human_reply_and_opener_hints_come_from_the_lexicon(t
 
 
 def test_stop_classifies_only_turns_without_a_row(tmp_path: Path, monkeypatch):
-    import helios_mcp.ingest as ingest_mod
+    import panmind.ingest as ingest_mod
 
-    helios = tmp_path / "helios"
+    panmind = tmp_path / "panmind"
     b = _verbose_session_with_corrections(3)
     path = b.write(tmp_path / "s.jsonl")
-    ingest_session(helios, "dev", path, "s1")
+    ingest_session(panmind, "dev", path, "s1")
     classified: list[str] = []
     real = ingest_mod.classify_turn
     monkeypatch.setattr(ingest_mod, "classify_turn",
@@ -216,5 +216,5 @@ def test_stop_classifies_only_turns_without_a_row(tmp_path: Path, monkeypatch):
     b.prompt("next task")
     b.say("Done.")
     b.prompt("thanks")
-    ingest_session(helios, "dev", b.write(path), "s1")
+    ingest_session(panmind, "dev", b.write(path), "s1")
     assert len(classified) == 2   # the answered turn before, and the new one

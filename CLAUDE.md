@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Helios
+## PanMind
 
 The behavioral genome for AI agents. Observes actual behavior, detects drift via a Dirichlet posterior and Jensen-Shannon divergence, negotiates profile updates with the human. Every change is git-committed. Ships as a Claude Code plugin (hooks + skills + MCP).
 
@@ -15,14 +15,14 @@ uv sync                                    # install deps
 uv run pytest tests/ -q                    # all tests (598)
 uv run pytest tests/test_distribution.py   # single file
 uv run pytest -k "js_is_symmetric"         # by name
-uv run pytest --cov=src/helios_mcp         # coverage
+uv run pytest --cov=src/panmind            # coverage
 uv run ruff check src/ tests/              # lint
-uv run mypy src/helios_mcp/                # types
+uv run mypy src/panmind/                   # types
 uv build --wheel                           # build
-uv run helios-mcp                          # start MCP server
-uv run helios-mcp init                     # onboard: import CLAUDE.md + output style, set default persona
-uv run helios-mcp status                   # show profiles
-uv run helios-mcp negotiate <persona>      # drift report
+uv run panmind                             # start MCP server
+uv run panmind init                        # onboard: import CLAUDE.md + output style, set default persona
+uv run panmind status                      # show profiles
+uv run panmind negotiate <persona>         # drift report
 ```
 
 ## Architecture
@@ -75,7 +75,7 @@ Taxonomy is **not locked**. Research needed before hardening (see `.specs/helios
 
 ```
 capture (plugin, stdlib only)          ingest (transcript -> ledger)              estimate / negotiate / serve
-helios-plugin/hooks/hook-handler.py -> transcript.py -> AgentTurn/UserInput   ->  store.py: ObservationStore, ProposalStore
+panmind-plugin/hooks/hook-handler.py -> transcript.py -> AgentTurn/UserInput   ->  store.py: ObservationStore, ProposalStore
   derived features only, no content     classify.py (heuristic labels)             estimator.py -> drift.py (Dirichlet + JS)
                                          llm.py (Haiku batch labeler)                     |
                                          endorsement.py (judges the next user turn)       v
@@ -85,12 +85,12 @@ helios-plugin/hooks/hook-handler.py -> transcript.py -> AgentTurn/UserInput   ->
                                                                                             |                    |
                                                                                     rendered/<persona>.md   taxonomy.py
 
-service.py (HeliosService, the one engine API) wires store/estimator/drift/negotiation/hierarchy/renderer
+service.py (PanMindService, the one engine API) wires store/estimator/drift/negotiation/hierarchy/renderer
 ├── server.py   (7 MCP tools, thin layer over service.py)
 ├── cli.py      (thin layer over service.py; `init` calls onboard.py, `ingest` calls ingest.py)
 ├── onboard.py  → importer.py → projector.py, llm.py   (declared_sources: CLAUDE.md + active output style)
 ├── exporter.py (yaml/json/soulspec)
-├── bootstrap.py (default_profiles/ -> ~/.helios on first run)
+├── bootstrap.py (default_profiles/ -> ~/.panmind on first run)
 ├── atomic_ops.py (atomic YAML/text writes, git_commit)
 └── security.py (validate_persona_name, persona_path; the path-traversal guard used everywhere personas are named)
 ```
@@ -99,7 +99,7 @@ service.py (HeliosService, the one engine API) wires store/estimator/drift/negot
 
 ### Key Thresholds
 
-All live in `drift.DriftConfig`. Drift runs on the `endorsed` posterior only. With model labeling on, endorsed counts only turns that have an llm label; heuristic-only turns feed the fingerprint. With `HELIOS_LLM=0`, heuristic labels are authoritative.
+All live in `drift.DriftConfig`. Drift runs on the `endorsed` posterior only. With model labeling on, endorsed counts only turns that have an llm label; heuristic-only turns feed the fingerprint. With `PANMIND_LLM=0`, heuristic labels are authoritative.
 
 - Posterior per dimension: `Dirichlet(s * declared + counts)`, prior strength s = 25 turns
 - Evidence per turn: soft label * confidence ** 0.5, times the response grade for uncorrected turns: explicit approval (endorsement >= 0.75) 1.0, moved on (>= 0.25) 0.2, no response or an outcome complaint 0. Only endorsement <= -0.75 is a behavior correction
@@ -117,10 +117,10 @@ All live in `drift.DriftConfig`. Drift runs on the `endorsed` posterior only. Wi
 
 ## Design Constraints
 
-1. **Observe only, never steer.** Helios never blocks or modifies agent behavior in real-time. This is required for Anthropic plugin verification.
+1. **Observe only, never steer.** PanMind never blocks or modifies agent behavior in real-time. This is required for Anthropic plugin verification.
 2. **UV only.** Never pip.
 3. **Zero attribution.** No AI/Claude/Anthropic mentions in code or commits.
-4. **Constitutional layering.** Helios personalizes above the AI's safety constitution. Never contradicts it.
+4. **Constitutional layering.** PanMind personalizes above the AI's safety constitution. Never contradicts it.
 5. **Personalization framing.** Public messaging leads with "learn your preferences," not "detect laziness." Drift detection is mechanism, not headline.
 
 ## Current Roadmap
@@ -129,7 +129,7 @@ Done: hook-based observation, heuristic + Haiku labeling, the nine-dimension tax
 
 Open:
 
-1. Ongoing local dogfooding: run Helios against the founder's live sessions over time rather than a single replay, watching for false positives and proposal pacing as the ledger grows.
+1. Ongoing local dogfooding: run PanMind against the founder's live sessions over time rather than a single replay, watching for false positives and proposal pacing as the ledger grows.
 2. Distribution: Anthropic marketplace submission, PyPI.
 
 ## Reference

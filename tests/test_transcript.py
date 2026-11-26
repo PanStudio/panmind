@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from helios_mcp.transcript import parse_records, parse_timestamp, parse_transcript
+from panmind.transcript import parse_records, parse_timestamp, parse_transcript
 
 from .transcript_fixtures import TranscriptBuilder
 

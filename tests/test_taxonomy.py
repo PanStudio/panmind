@@ -1,8 +1,8 @@
-"""Tests for behavioral taxonomy — the scientific foundation of Helios v2."""
+"""Tests for behavioral taxonomy — the scientific foundation of PanMind v2."""
 
 import pytest
 
-from helios_mcp.taxonomy import (
+from panmind.taxonomy import (
     BEHAVIORAL_TAXONOMY,
     DIMENSION_DESCRIPTIONS,
     STATE_LABELS,

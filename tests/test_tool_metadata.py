@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from helios_mcp.server import create_server
+from panmind.server import create_server
 
 EXPECTED_HINTS = {
     "list_personas": {
@@ -53,9 +53,9 @@ EXPECTED_HINTS = {
 
 
 @pytest.fixture
-async def registered_tools(temp_helios_dir: Path) -> dict:
-    """Return the {name: Tool} mapping registered on a fresh Helios server."""
-    mcp = await create_server(temp_helios_dir)
+async def registered_tools(temp_panmind_dir: Path) -> dict:
+    """Return the {name: Tool} mapping registered on a fresh PanMind server."""
+    mcp = await create_server(temp_panmind_dir)
     return await mcp.get_tools()
 
 
@@ -91,5 +91,5 @@ async def test_tool_publishes_non_empty_output_schema(
 
 
 async def test_list_personas_is_open_world_false(registered_tools: dict) -> None:
-    """list_personas is scoped to the local Helios directory, not the open web."""
+    """list_personas is scoped to the local PanMind directory, not the open web."""
     assert registered_tools["list_personas"].annotations.openWorldHint is False

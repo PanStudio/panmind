@@ -1,11 +1,11 @@
 {
-  "name": "helios-marketplace",
+  "name": "panmind-marketplace",
   "owner": {"name": "Anthony Kougkas"},
-  "description": "Marketplace for the Helios behavioral genome plugin.",
+  "description": "Marketplace for the PanMind behavioral genome plugin.",
   "plugins": [
     {
-      "name": "helios",
-      "source": "./helios-plugin",
+      "name": "panmind",
+      "source": "./panmind-plugin",
       "description": "Learns your working style and negotiates an update with you when what it actually does drifts from what you've declared.",
       "version": "0.5.0-beta.1",
       "category": "productivity"
