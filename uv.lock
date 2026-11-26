@@ -871,7 +871,7 @@ wheels = [
 
 [[package]]
 name = "panmind"
-version = "0.5.0b1"
+version = "0.5.0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },

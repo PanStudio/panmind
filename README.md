@@ -203,7 +203,7 @@ extensive test suite (see the [CI workflow](.github/workflows/ci.yml) for the
 current pass/fail state, since a hardcoded count in prose goes stale). Hook
 capture, transcript labeling, declared-artifact import, per-model fingerprint
 tracking, and plugin packaging are wired end to end and have run against the
-founder's own real session history. The package is at `0.5.0b1` and
+founder's own real session history. The package is at `0.5.0` and
 classified as beta: it's not yet on PyPI or the Anthropic plugin marketplace,
 and long-running, ongoing dogfooding is still open.
 

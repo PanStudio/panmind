@@ -7,7 +7,7 @@
       "name": "panmind",
       "source": "./panmind-plugin",
       "description": "Learns your working style and negotiates an update with you when what it actually does drifts from what you've declared.",
-      "version": "0.5.0-beta.1",
+      "version": "0.5.0",
       "category": "productivity"
     }
   ]

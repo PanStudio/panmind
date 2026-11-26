@@ -29,7 +29,7 @@ def _get_version() -> str:
             return version("panmind")
     except Exception:
         pass
-    return "0.5.0b1"
+    return "0.5.0"
 
 
 __version__ = _get_version()

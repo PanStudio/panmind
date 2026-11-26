@@ -1,6 +1,6 @@
 [project]
 name = "panmind"
-version = "0.5.0b1"
+version = "0.5.0"
 description = "Behavioral genome for AI agents with drift detection and profile negotiation"
 readme = "README.md"
 authors = [
