@@ -7,8 +7,8 @@ Dirichlet posterior and Jensen-Shannon divergence, and asks before committing
 a change.
 
 [![Python 3.13+](https://img.shields.io/badge/python-3.13%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/akougkas/helios-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/akougkas/helios-mcp/actions/workflows/ci.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![CI](https://github.com/PanStudio/panmind/actions/workflows/ci.yml/badge.svg)](https://github.com/PanStudio/panmind/actions/workflows/ci.yml)
 [![Built with UV](https://img.shields.io/badge/built%20with-UV-blue?logo=python)](https://github.com/astral-sh/uv)
 
 ## The problem
@@ -144,8 +144,8 @@ Requires Python ≥ 3.13, managed with [uv](https://docs.astral.sh/uv/). Not on
 PyPI yet, so install from a local checkout.
 
 ```bash
-git clone https://github.com/akougkas/helios-mcp
-cd helios-mcp
+git clone https://github.com/PanStudio/panmind
+cd panmind
 uv sync
 uv run helios-mcp --verbose   # starts the MCP server over stdio
 uv run helios-mcp init        # onboard: import CLAUDE.md + the active output style
@@ -215,4 +215,4 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, running tests
 
 ## License
 
-MIT © 2025 Anthony Kougkas. See [`LICENSE`](LICENSE).
+Copyright 2025-2026 PanStudio. Licensed under the Apache License, Version 2.0. See [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
