@@ -123,17 +123,20 @@ temporary/
 
 def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
+    env["GIT_TERMINAL_PROMPT"] = "0"
     has_identity = subprocess.run(
         ["git", "-C", str(repo), "config", "user.email"],
-        capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False,
+        env=env, timeout=GIT_TIMEOUT,
     ).stdout.strip()
     if not has_identity:
         env.update(_GIT_IDENTITY)
-    # Signing can prompt for a passphrase, and this runs from hooks and the MCP
-    # server where nobody can answer.
+    # Signing or hooks can prompt on stdin, and this runs from hooks and the
+    # stdio MCP server where stdin carries JSON-RPC frames.
     return subprocess.run(
         ["git", "-C", str(repo), "-c", "commit.gpgsign=false", *args],
-        capture_output=True, text=True, check=False, env=env, timeout=GIT_TIMEOUT,
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False,
+        env=env, timeout=GIT_TIMEOUT,
     )
 
 

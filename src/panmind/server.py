@@ -295,17 +295,22 @@ def _invalid_request_state() -> MCPError:
                     data={"reason": "invalid_request_state"})
 
 
+_MRTR_METHODS = frozenset({"tools/call", "prompts/get", "resources/read"})
+
+
 @dataclass
 class SingleUseRequestState:
     """Refuse a sealed ``requestState`` the server has already accepted.
 
     Runs outside ``RequestStateBoundary``, so it sees the sealed wire token,
-    which is unique per round (fresh AEAD nonce). A token is held while its
-    request runs, so a concurrent replay is refused too, and is remembered
-    only once the boundary has accepted it, so forged tokens cost nothing.
-    Entries outlive the token's TTL, after which the boundary refuses it
-    anyway. When ``max_entries`` live tokens are remembered, new ones are
-    refused rather than forgetting a live one.
+    which is unique per round (fresh AEAD nonce). Only inspects the MRTR
+    methods that ``RequestStateBoundary`` validates, so non-MRTR requests
+    carrying an arbitrary ``requestState`` cannot populate the replay cache.
+    A token is held while its request runs, so a concurrent replay is refused
+    too, and is remembered only once the boundary has accepted it, so forged
+    tokens cost nothing. Entries outlive the token's TTL, after which the
+    boundary refuses it anyway. When ``max_entries`` live tokens are
+    remembered, new ones are refused rather than forgetting a live one.
     """
 
     ttl: float
@@ -318,6 +323,8 @@ class SingleUseRequestState:
 
     async def __call__(self, ctx: ServerRequestContext[Any, Any],
                        call_next: CallNext) -> HandlerResult:
+        if ctx.method not in _MRTR_METHODS:
+            return await call_next(ctx)
         token = ctx.params.get("requestState") if ctx.params else None
         if not isinstance(token, str):
             return await call_next(ctx)
@@ -480,10 +487,9 @@ async def create_server(panmind_dir: Path | None = None,
     @tool("get_drift_report", "Get Drift Report",
           "Get a persona's drift report: endorsed drift, per-model fingerprint "
           "diagnostics and the pending proposal's id. Records that proposal in "
-          "PANMIND_DIR/proposals so the id stays valid for negotiate_update and "
-          "rewrites rendered/<persona>.md; never changes a profile, and repeated "
-          "calls on the same ledger return the same proposal. Call when "
-          "negotiation_recommended is true.",
+          "PANMIND_DIR/proposals so the id stays valid for negotiate_update; "
+          "never changes a profile, and repeated calls on the same ledger "
+          "return the same proposal. Call when negotiation_recommended is true.",
           read_only=False, destructive=False, idempotent=True)
     def get_drift_report(persona_name: PersonaName = "") -> GetDriftReportResult:
         with _errors("get_drift_report"):
@@ -512,11 +518,15 @@ async def create_server(panmind_dir: Path | None = None,
             raise ToolError(f"proposal {proposal_id} for persona '{persona}' is "
                             f"{state}. Call get_drift_report for the current "
                             "proposal id.")
+        if accepted_dimensions:
+            unknown = sorted(set(accepted_dimensions) - set(proposal.changes))
+            if unknown:
+                raise ToolError(
+                    f"accepted_dimensions not in proposal: {unknown}. "
+                    f"Proposal {proposal_id} covers: {sorted(proposal.changes)}."
+                )
         offered = [d for d in proposal.changes
                    if not accepted_dimensions or d in accepted_dimensions]
-        if not offered:
-            raise ToolError("accepted_dimensions names none of the proposal's "
-                            f"dimensions: {sorted(proposal.changes)}.")
         return _confirmation_form(persona, proposal, offered)
 
     @tool("negotiate_update", "Negotiate Behavioral Update",

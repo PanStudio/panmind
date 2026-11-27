@@ -611,6 +611,17 @@ class TestNegotiateElicitation:
         assert result.is_error
         assert "get_drift_report" in result.content[0].text
 
+    async def test_unknown_accepted_dimension_errors_before_eliciting(self, setup):
+        server, _panmind_dir, proposal_id = setup
+        async with Client(server, mode=MODERN,
+                          elicitation_callback=_no_elicitation) as client:
+            result = await client.call_tool(
+                "negotiate_update",
+                {"proposal_id": proposal_id, "persona_name": "developer",
+                 "accepted_dimensions": ["communication_register", "narration"]})
+        assert result.is_error
+        assert "narration" in result.content[0].text
+
 
 # ---------------------------------------------------------------------------
 # Skills over MCP
@@ -804,3 +815,19 @@ class TestSingleUseRequestState:
         with pytest.raises(MCPError):
             await guard(self._ctx("b"), boundary)
         assert calls == ["a"]
+
+    async def test_non_mrtr_methods_cannot_populate_replay_cache(self):
+        from types import SimpleNamespace
+
+        from panmind.server import SingleUseRequestState
+
+        guard = SingleUseRequestState(ttl=60, max_entries=1)
+
+        async def passthrough(ctx):
+            return ctx.method
+
+        for i, method in enumerate(("ping", "tools/list", "skills/list")):
+            ctx = SimpleNamespace(method=method, params={"requestState": f"junk-{i}"})
+            assert await guard(ctx, passthrough) == method
+
+        assert await guard(self._ctx("real"), passthrough) == "tools/call"
