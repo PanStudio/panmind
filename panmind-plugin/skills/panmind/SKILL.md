@@ -82,14 +82,16 @@ Args: { "proposal_id": "<id from get_drift_report>", "decision": "reject", "reas
 
 `accepted_dimensions` narrows either decision to specific dimensions (default: all dimensions in the proposal).
 
+If your client supports form elicitation, you can instead call `negotiate_update` with only the `proposal_id`: the user then decides in a form (accept or reject, and which dimensions). A declined or cancelled form changes nothing.
+
 ## Import
 
 When the user wants to import a personality file:
 ```
 Tool: import_profile
-Args: { "source_path": "/path/to/CLAUDE.md" }
+Args: { "source_path": "CLAUDE.md" }
 ```
-Add `"persona_name"` to name the resulting persona explicitly; otherwise it's derived from the filename.
+A relative `source_path` is read from the import root: `PANMIND_IMPORT_ROOT`, else the directory the server started in. Files outside that root, symlinks that lead out of it, and files over 256 KiB are refused. Add `"persona_name"` to name the resulting persona explicitly; otherwise it's derived from the filename.
 
 ## Export
 

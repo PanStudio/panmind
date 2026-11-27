@@ -389,6 +389,7 @@ def import_from_markdown(
     format: str = "auto",  # noqa: A002 - public param name; kept for callers
     client: LLMClient | None = None,
     panmind_dir: Path | None = None,
+    content: str | None = None,
 ) -> BehavioralProfile:
     """Import a personality file into a PanMind BehavioralProfile.
 
@@ -401,6 +402,8 @@ def import_from_markdown(
         path: Path to the markdown/personality file.
         format: File format. "auto" for auto-detection.
             Valid values: "auto", "claude", "soul", "agents", "gemini", "generic".
+        content: The file's text, when the caller has already read it; ``path``
+            then only names the source.
 
     Returns:
         A BehavioralProfile with projected distributions.
@@ -409,10 +412,10 @@ def import_from_markdown(
         FileNotFoundError: If the file doesn't exist.
         ValueError: If the file is empty or format is invalid.
     """
-    if not path.exists():
-        raise FileNotFoundError(f"Import source not found: {path}")
-
-    content = path.read_text(encoding="utf-8")
+    if content is None:
+        if not path.exists():
+            raise FileNotFoundError(f"Import source not found: {path}")
+        content = path.read_text(encoding="utf-8")
     if not content.strip():
         raise ValueError(f"Import source is empty: {path}")
 

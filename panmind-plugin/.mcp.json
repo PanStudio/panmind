@@ -1,8 +1,12 @@
 {
   "mcpServers": {
     "panmind": {
+      "type": "stdio",
       "command": "uvx",
-      "args": ["--from", "${PANMIND_SOURCE:-panmind}", "panmind"]
+      "args": ["--from", "${PANMIND_SOURCE:-panmind}", "panmind"],
+      "env": {
+        "PANMIND_DIR": "${PANMIND_DIR:-}"
+      }
     }
   }
 }

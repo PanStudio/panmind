@@ -1,9 +1,9 @@
 """Structured-output and annotation metadata tests for the 7 MCP tools.
 
-These tests introspect the FastMCP server object returned by
-``create_server()`` directly (via ``get_tools()``) rather than invoking the
-tools, so they assert on the published MCP tool contract: registration,
-behavior hints (readOnlyHint/destructiveHint/idempotentHint), and the
+These tests introspect the server object returned by ``create_server()``
+directly (via ``list_tools()``) rather than invoking the tools, so they
+assert on the published MCP tool contract: registration, behavior hints
+(readOnlyHint/destructiveHint/idempotentHint/openWorldHint), and the
 presence of a non-empty structured output schema.
 """
 
@@ -24,9 +24,11 @@ EXPECTED_HINTS = {
         "destructiveHint": False,
         "idempotentHint": True,
     },
+    # It may auto-accept a confident drift: rewrite the profile, commit it
+    # and re-render rendered/<persona>.md.
     "observe_interaction": {
         "readOnlyHint": False,
-        "destructiveHint": False,
+        "destructiveHint": True,
         "idempotentHint": False,
     },
     "get_drift_report": {
@@ -56,7 +58,7 @@ EXPECTED_HINTS = {
 async def registered_tools(temp_panmind_dir: Path) -> dict:
     """Return the {name: Tool} mapping registered on a fresh PanMind server."""
     mcp = await create_server(temp_panmind_dir)
-    return await mcp.get_tools()
+    return {tool.name: tool for tool in await mcp.list_tools()}
 
 
 async def test_all_seven_tools_are_registered(registered_tools: dict) -> None:
@@ -71,9 +73,9 @@ async def test_tool_has_expected_behavior_hints(
     expected = EXPECTED_HINTS[tool_name]
 
     assert tool.annotations is not None, f"{tool_name} has no annotations"
-    assert tool.annotations.readOnlyHint is expected["readOnlyHint"]
-    assert tool.annotations.destructiveHint is expected["destructiveHint"]
-    assert tool.annotations.idempotentHint is expected["idempotentHint"]
+    assert tool.annotations.read_only_hint is expected["readOnlyHint"]
+    assert tool.annotations.destructive_hint is expected["destructiveHint"]
+    assert tool.annotations.idempotent_hint is expected["idempotentHint"]
     assert tool.annotations.title, f"{tool_name} has no human-readable title"
 
 
@@ -90,6 +92,11 @@ async def test_tool_publishes_non_empty_output_schema(
     )
 
 
-async def test_list_personas_is_open_world_false(registered_tools: dict) -> None:
-    """list_personas is scoped to the local PanMind directory, not the open web."""
-    assert registered_tools["list_personas"].annotations.openWorldHint is False
+@pytest.mark.parametrize("tool_name", sorted(EXPECTED_HINTS))
+async def test_only_import_reaches_outside_panmind_dir(
+    registered_tools: dict, tool_name: str
+) -> None:
+    """import_profile reads a file the caller names; every other tool stays
+    inside the local PanMind directory."""
+    expected = tool_name == "import_profile"
+    assert registered_tools[tool_name].annotations.open_world_hint is expected

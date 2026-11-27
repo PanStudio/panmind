@@ -1,5 +1,7 @@
 # PanMind
 
+<!-- mcp-name: io.github.PanStudio/panmind -->
+
 **A behavioral genome for AI agents.** PanMind is a Model Context Protocol (MCP)
 server that represents an agent's personality as probability distributions,
 measures how far observed behavior drifts from the declared profile using a
@@ -107,23 +109,34 @@ thresholds live in `drift.DriftConfig` and are documented in
 
 ## MCP tools
 
-The server ([`src/panmind/server.py`](src/panmind/server.py)) exposes
-exactly **7 tools**, all registered with `@mcp.tool`:
+The server ([`src/panmind/server.py`](src/panmind/server.py)) is built on the
+`mcp` 2.x SDK. It serves the 2026-07-28 protocol (stateless, `server/discover`)
+next to the `initialize` handshake of 2024-11-05 through 2025-11-25, and
+exposes exactly **7 tools**. Every tool publishes an input schema with bounds,
+an output schema, a title and behavior hints. A failure comes back as an
+`isError: true` result with a hint, not as a `status` field.
 
 | Tool | Parameters | What it does |
 |---|---|---|
-| `list_personas` | — | Lists persona names found under `~/.panmind/personas/*.yaml`. |
-| `get_behavioral_context` | `persona_name` | Resolves the 4-level hierarchy for the persona and renders it as system-prompt text. |
-| `observe_interaction` | `persona_name`, `messages`, `session_id` | Turns conversation messages into observations, appends them to the persona's ledger, and reports current drift and whether negotiation is recommended. |
+| `list_personas` | `cursor`, `limit` | Lists persona names under `PANMIND_DIR/personas`, sorted, a page at a time (`next_cursor`). |
+| `get_behavioral_context` | `persona_name`, `model` | Resolves the 4-level hierarchy for the persona and renders it as system-prompt text. |
+| `observe_interaction` | `persona_name`, `messages`, `session_id` | Turns conversation messages into observations, appends them to the persona's ledger, re-renders `rendered/<persona>.md` and reports current drift. A confident, small drift is accepted silently, which rewrites the user profile and git-commits it, so the tool is marked destructive. |
 | `get_drift_report` | `persona_name` | Computes endorsed drift against the declared profile: a natural-language summary, per-dimension detail, fingerprint diagnostics, and the id of any pending proposal with its tier (suggestion/strong). |
-| `negotiate_update` | `proposal_id`, `decision` (`accept`/`reject`), `persona_name`, `reason`, `accepted_dimensions` | Accepts a proposal by id (writes the persona's user-level YAML and git-commits it) or records a rejection with a per-dimension cooldown. |
-| `import_profile` | `source_path`, `persona_name` | Parses a personality file (e.g. `CLAUDE.md`) and creates a new persona with projected distributions. |
+| `negotiate_update` | `proposal_id`, `decision` (`accept`/`reject`), `persona_name`, `reason`, `accepted_dimensions` | Accepts a proposal by id (writes the persona's user-level YAML and git-commits it) or records a rejection with a per-dimension cooldown. Without `decision`, a client that supports form elicitation asks the user (accept or reject, and which dimensions); declining or cancelling the form changes nothing. |
+| `import_profile` | `source_path`, `persona_name` | Parses a personality file (e.g. `CLAUDE.md`) and creates a new persona with projected distributions. `source_path` must resolve, symlinks included, to a regular file of at most 256 KiB inside the import root: `PANMIND_IMPORT_ROOT` when set, else the directory the server started in. Results carry the source file name and a path relative to `PANMIND_DIR`. |
 | `export_profile` | `persona_name`, `format` (`yaml`/`json`/`soulspec`), `dimensions` | Exports a resolved profile, optionally filtered to specific dimensions. |
+
+The server also offers its two skills (`panmind` and `panmind-observer`) over
+MCP: as `skill://` resources in every protocol era, and through the
+`io.modelcontextprotocol/skills` extension (`skills/list`, `skills/get`) on
+2026-07-28 connections.
 
 ## Delivery
 
 PanMind ships on three surfaces:
 
+- **MCP registry**: [`server.json`](server.json) describes the PyPI package
+  for the MCP registry.
 - **Claude Code plugin**: [`panmind-plugin/`](panmind-plugin/) bundles the
   MCP server config (`.mcp.json`), observation hooks (`hooks/`), a skill
   (`skills/panmind/SKILL.md`), and an observer agent (`agents/`).

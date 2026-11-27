@@ -96,3 +96,54 @@ class TestPersonaPath:
         base.mkdir()
         with pytest.raises((InvalidInputError, PathTraversalError)):
             persona_path(base, "..", ".yaml")
+
+
+class TestReadImportSource:
+    """The file is read through descriptors opened without following links,
+    so a path that changes between the containment check and the read is
+    refused rather than followed."""
+
+    @pytest.fixture
+    def layout(self, tmp_path):
+        root, outside = tmp_path / "root", tmp_path / "outside"
+        (root / "sub").mkdir(parents=True)
+        outside.mkdir()
+        (root / "sub" / "f.md").write_text("inside")
+        (outside / "f.md").write_text("outside")
+        return root, outside
+
+    def test_reads_name_and_text(self, layout):
+        from panmind.security import read_import_source
+
+        root, _outside = layout
+        assert read_import_source("sub/f.md", root) == ("f.md", "inside")
+
+    def test_component_swapped_for_a_link_after_the_check_is_refused(
+            self, layout, monkeypatch):
+        import os
+        import shutil
+
+        from panmind.security import read_import_source
+
+        root, outside = layout
+        real_open = os.open
+
+        def racing_open(path, flags, *args, **kwargs):
+            if path == "sub":
+                shutil.rmtree(root / "sub")
+                (root / "sub").symlink_to(outside)
+            return real_open(path, flags, *args, **kwargs)
+
+        monkeypatch.setattr(os, "open", racing_open)
+        with pytest.raises(PathTraversalError):
+            read_import_source("sub/f.md", root)
+
+    def test_fifo_is_refused_without_blocking(self, layout):
+        import os
+
+        from panmind.security import read_import_source
+
+        root, _outside = layout
+        os.mkfifo(root / "pipe.md")
+        with pytest.raises(InvalidInputError, match="regular file"):
+            read_import_source("pipe.md", root)
