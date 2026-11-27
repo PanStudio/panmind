@@ -12,7 +12,7 @@ Not a RAG system, not a preference store, not a static personality file.
 
 ```bash
 uv sync                                    # install deps
-uv run pytest tests/ -q                    # all tests (598)
+uv run pytest tests/ -q                    # all tests (686)
 uv run pytest tests/test_distribution.py   # single file
 uv run pytest -k "js_is_symmetric"         # by name
 uv run pytest --cov=src/panmind            # coverage
@@ -86,7 +86,8 @@ panmind-plugin/hooks/hook-handler.py -> transcript.py -> AgentTurn/UserInput   -
                                                                                     rendered/<persona>.md   taxonomy.py
 
 service.py (PanMindService, the one engine API) wires store/estimator/drift/negotiation/hierarchy/renderer
-├── server.py   (7 MCP tools, thin layer over service.py)
+├── server.py   (7 MCP tools on the mcp 2.x MCPServer, thin layer over service.py; elicitation for negotiate_update)
+├── skills_extension.py (serves skills/<name>/SKILL.md as skill:// resources and the skills extension)
 ├── cli.py      (thin layer over service.py; `init` calls onboard.py, `ingest` calls ingest.py)
 ├── onboard.py  → importer.py → projector.py, llm.py   (declared_sources: CLAUDE.md + active output style)
 ├── exporter.py (yaml/json/soulspec)

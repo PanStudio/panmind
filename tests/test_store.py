@@ -142,3 +142,14 @@ def test_key_index_survives_rows_written_behind_its_back(tmp_path):
     store.index_path("dev").write_text('[12, [["s1"')  # torn index line
     assert store.append([obs("t1"), obs("t3")]) == 0
     assert store.count("dev") == 3
+
+
+def test_a_held_lock_times_out_instead_of_hanging(tmp_path):
+    from panmind.atomic_ops import flock
+
+    lock = tmp_path / "x.lock"
+    with (flock(lock), pytest.raises(TimeoutError, match="x.lock"),
+          flock(lock, timeout=0.1)):
+        pass
+    with flock(lock, timeout=0.1):
+        pass

@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 from click.testing import CliRunner
-from fastmcp import Client
+from mcp.client import Client
 
 from panmind.cli import main
 from panmind.security import SecurityError
@@ -25,7 +25,14 @@ def terse_turns(n, persona="developer"):
 
 async def call(client, tool, **args):
     result = await client.call_tool(tool, args)
+    assert not result.is_error, result.content
     return result.structured_content
+
+
+async def fail(client, tool, **args):
+    result = await client.call_tool(tool, args)
+    assert result.is_error
+    return result.content[0].text
 
 
 async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
@@ -36,7 +43,6 @@ async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
 
     async with Client(mcp) as client:
         report = await call(client, "get_drift_report", persona_name="developer")
-        assert report["status"] == "success"
         assert report["negotiation_recommended"]
         assert DIM in report["endorsed"] and DIM in report["fingerprint"]
         pid = report["proposal_id"]
@@ -53,9 +59,9 @@ async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
         assert not after["negotiation_recommended"]
         assert after["proposal_id"] is None
 
-        stale = await call(client, "negotiate_update", persona_name="developer",
+        stale = await fail(client, "negotiate_update", persona_name="developer",
                            proposal_id=pid, decision="reject")
-        assert stale["status"] == "error"
+        assert pid in stale
 
     assert rendered.read_text() != before
 
@@ -65,14 +71,13 @@ async def test_mcp_cycle_proposes_accepts_converges_and_renders(tmp_path):
     ("get_drift_report", {}),
     ("export_profile", {}),
     ("observe_interaction", {"messages": [{"role": "assistant", "content": "x"}]}),
-    ("negotiate_update", {"proposal_id": "x", "decision": "accept"}),
+    ("negotiate_update", {"proposal_id": "0123456789ab", "decision": "accept"}),
 ])
 async def test_every_persona_tool_rejects_traversal(tmp_path, tool, args):
     panmind = tmp_path / "panmind"
     mcp = await create_server(panmind)
     async with Client(mcp) as client:
-        result = await call(client, tool, persona_name="../../escape", **args)
-    assert result["status"] == "error"
+        await fail(client, tool, persona_name="../../escape", **args)
     assert not list(tmp_path.glob("escape*"))
     assert not list(tmp_path.rglob("escape*"))
 
@@ -163,3 +168,23 @@ def test_cli_negotiate_accepts_pending_proposal(tmp_path):
     again = runner.invoke(main, ["--panmind-dir", str(tmp_path), "negotiate",
                                  "developer"])
     assert "No credible drift" in again.output
+
+
+def test_empty_panmind_dir_means_the_default(tmp_path, monkeypatch):
+    """.mcp.json passes ${PANMIND_DIR:-} through, which is "" when unset."""
+    from panmind.cli import _default_panmind_dir
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("PANMIND_DIR", "")
+    assert _default_panmind_dir() == tmp_path / ".panmind"
+
+
+def test_import_through_a_symlinked_panmind_dir_reports_a_relative_path(tmp_path):
+    real = tmp_path / "real"
+    real.mkdir()
+    (tmp_path / "link").symlink_to(real)
+    source = tmp_path / "CLAUDE.md"
+    source.write_text("# Style\nBe terse and direct.\n")
+    result = PanMindService(tmp_path / "link").import_profile(source, "imp")
+    assert result["saved_to"] == "personas/imp.yaml"
+    assert (real / "personas" / "imp.yaml").is_file()

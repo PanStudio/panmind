@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.PanStudio/panmind",
+  "title": "PanMind",
+  "description": "Learns an agent's working style from observed sessions and proposes profile updates you approve.",
+  "version": "0.5.0",
+  "repository": {
+    "url": "https://github.com/PanStudio/panmind",
+    "source": "github"
+  },
+  "websiteUrl": "https://github.com/PanStudio/panmind",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "panmind",
+      "version": "0.5.0",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PANMIND_DIR",
+          "description": "Where profiles, observations and proposals live (a git repository). Defaults to ~/.panmind.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        },
+        {
+          "name": "PANMIND_IMPORT_ROOT",
+          "description": "The only directory import_profile may read from. Defaults to the directory the server starts in.",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "filepath"
+        }
+      ]
+    }
+  ]
+}

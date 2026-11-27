@@ -235,6 +235,44 @@ class TestMCPConfig:
         # development, the published PyPI package once it exists.
         assert "${PANMIND_SOURCE:-panmind}" in server["args"]
 
+    def test_declares_stdio_and_passes_panmind_dir_through(self, mcp):
+        """An unset PANMIND_DIR expands to "", which the CLI reads as unset
+        (~/.panmind), so the server and the hooks agree on the directory."""
+        server = mcp["mcpServers"]["panmind"]
+        assert server["type"] == "stdio"
+        assert server["env"] == {"PANMIND_DIR": "${PANMIND_DIR:-}"}
+
+
+# ---------------------------------------------------------------------------
+# server.json (MCP registry)
+# ---------------------------------------------------------------------------
+
+
+class TestRegistryServerJson:
+    @pytest.fixture
+    def server(self):
+        return json.loads((REPO_ROOT / "server.json").read_text())
+
+    def test_versions_match_pyproject(self, server):
+        with open(REPO_ROOT / "pyproject.toml", "rb") as f:
+            version = tomllib.load(f)["project"]["version"]
+        assert server["version"] == version
+        assert [p["version"] for p in server["packages"]] == [version]
+
+    def test_pypi_stdio_package_without_secrets(self, server):
+        assert server["$schema"].endswith("/2025-12-11/server.schema.json")
+        [package] = server["packages"]
+        assert package["registryType"] == "pypi"
+        assert package["identifier"] == "panmind"
+        assert package["transport"] == {"type": "stdio"}
+        assert not any(v.get("isSecret") for v in package["environmentVariables"])
+        assert len(server["description"]) <= 100
+
+    def test_readme_claims_the_registry_name(self, server):
+        """The registry checks PyPI ownership through this README marker."""
+        readme = (REPO_ROOT / "README.md").read_text()
+        assert f"mcp-name: {server['name']}" in readme
+
 
 # ---------------------------------------------------------------------------
 # marketplace.json
@@ -365,6 +403,28 @@ class TestObserverAgent:
 # ---------------------------------------------------------------------------
 # 3.7 Standalone skill package
 # ---------------------------------------------------------------------------
+
+
+class TestSkillSources:
+    """src/panmind/skills/ is the one source. The server serves it over MCP;
+    the copies a plugin or skill install reads are derived from it."""
+
+    CANONICAL = REPO_ROOT / "src" / "panmind" / "skills"
+
+    def test_standalone_skill_is_the_canonical_skill(self):
+        canonical = (self.CANONICAL / "panmind" / "SKILL.md").read_text()
+        assert (SKILL_DIR / "SKILL.md").read_text() == canonical
+
+    def test_plugin_skill_is_canonical_with_plugin_tool_prefix(self):
+        canonical = (self.CANONICAL / "panmind" / "SKILL.md").read_text()
+        plugin = (PLUGIN_DIR / "skills" / "panmind" / "SKILL.md").read_text()
+        assert plugin == canonical.replace(
+            "mcp__panmind__", "mcp__plugin_panmind_panmind__")
+
+    def test_observer_agent_is_the_canonical_observer_skill(self):
+        canonical = (self.CANONICAL / "panmind-observer" / "SKILL.md").read_text()
+        agent = (PLUGIN_DIR / "agents" / "panmind-observer.md").read_text()
+        assert agent == canonical
 
 
 class TestStandaloneSkill:

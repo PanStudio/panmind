@@ -6,6 +6,7 @@ import os
 import subprocess
 import tempfile
 import threading
+import time
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -43,6 +44,36 @@ def atomic_write_yaml(path: Path, data: dict[str, Any]) -> None:
     )
 
 
+LOCK_TIMEOUT = 30.0
+GIT_TIMEOUT = 30.0
+
+
+@contextmanager
+def flock(path: Path, timeout: float = LOCK_TIMEOUT) -> Iterator[None]:
+    """Hold an exclusive flock on ``path``, waiting at most ``timeout`` seconds.
+
+    Raises:
+        TimeoutError: If another process holds the lock past the deadline.
+    """
+    deadline = time.monotonic() + timeout
+    with path.open("a") as lock:
+        while True:
+            try:
+                fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"{path.name} is held by another PanMind process; "
+                        f"gave up after {timeout:.0f} s"
+                    ) from None
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+
+
 _held = threading.local()
 
 
@@ -65,14 +96,12 @@ def panmind_lock(panmind_dir: Path) -> Iterator[None]:
             depth[key] -= 1
         return
     Path(key).mkdir(parents=True, exist_ok=True)
-    with open(Path(key) / "panmind.lock", "a") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+    with flock(Path(key) / "panmind.lock"):
         depth[key] = 1
         try:
             yield
         finally:
             depth[key] = 0
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 _GIT_IDENTITY = {
@@ -96,7 +125,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     has_identity = subprocess.run(
         ["git", "-C", str(repo), "config", "user.email"],
-        capture_output=True, text=True, check=False,
+        capture_output=True, text=True, check=False, timeout=GIT_TIMEOUT,
     ).stdout.strip()
     if not has_identity:
         env.update(_GIT_IDENTITY)
@@ -104,7 +133,7 @@ def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     # server where nobody can answer.
     return subprocess.run(
         ["git", "-C", str(repo), "-c", "commit.gpgsign=false", *args],
-        capture_output=True, text=True, check=False, env=env,
+        capture_output=True, text=True, check=False, env=env, timeout=GIT_TIMEOUT,
     )
 
 
@@ -140,6 +169,6 @@ def _git_commit(repo: Path, paths: Iterable[Path], message: str) -> str | None:
             logger.warning("git commit in %s failed: %s", repo, result.stderr.strip())
             return None
         return _git(repo, "rev-parse", "HEAD").stdout.strip() or None
-    except (OSError, ValueError) as exc:
+    except (OSError, ValueError, subprocess.TimeoutExpired) as exc:
         logger.warning("git commit in %s failed: %s", repo, exc)
         return None

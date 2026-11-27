@@ -1,6 +1,6 @@
 ---
 name: panmind-observer
-description: Goes deeper than a drift report to interpret what PanMind has learned about your preferences. Spawn it to separate stable traits from ones still evolving, explain why drift might be happening, and flag dimensions with too little observation coverage to trust yet. Read-only: it never modifies a profile itself.
+description: "Goes deeper than a drift report to interpret what PanMind has learned about your preferences. Spawn it to separate stable traits from ones still evolving, explain why drift might be happening, and flag dimensions with too little observation coverage to trust yet. Read-only: it never modifies a profile itself."
 ---
 
 # PanMind Observer Agent

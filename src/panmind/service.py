@@ -100,7 +100,9 @@ def _ingest_module() -> Any:
 class PanMindService:
     def __init__(self, panmind_dir: Path, config: DriftConfig = DEFAULT_CONFIG,
                  bootstrap: bool = True) -> None:
-        self.panmind_dir = panmind_dir
+        # Resolved, so paths built under it (persona_path resolves) stay
+        # relative to it even when PANMIND_DIR is relative or a symlink.
+        self.panmind_dir = panmind_dir = Path(panmind_dir).resolve()
         self.config = config
         self.negotiator = Negotiator(panmind_dir, config)
         self.ledger = ObservationStore(panmind_dir)
@@ -245,13 +247,15 @@ class PanMindService:
     # -- import and export ---------------------------------------------
 
     def import_profile(self, source: Path, name: str | None = None,
-                       fmt: str = "auto") -> dict[str, Any]:
+                       fmt: str = "auto", content: str | None = None) -> dict[str, Any]:
+        """Import ``source``, or ``content`` already read from it."""
         from .importer import import_from_markdown
 
         if name:
             validate_persona_name(name)
         profile = import_from_markdown(source, format=fmt,
-                                       panmind_dir=self.panmind_dir)
+                                       panmind_dir=self.panmind_dir,
+                                       content=content)
         persona = validate_persona_name(name or profile.agent_id)
         profile.agent_id = persona
         profile.declared_dimensions = profile.projected_dimensions()
@@ -262,8 +266,10 @@ class PanMindService:
         self.render(persona)
         return {
             "persona": persona,
-            "source": str(source),
-            "saved_to": str(out),
+            # File name and a PANMIND_DIR-relative path, so a result never
+            # discloses where the source or the profile live on disk.
+            "source": source.name,
+            "saved_to": out.relative_to(self.panmind_dir).as_posix(),
             "commit": commit,
             "distributions": {
                 dim: {"dominant": d.most_likely(),

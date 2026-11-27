@@ -6,8 +6,11 @@ matches a narrow character class, not rejected because it matches a
 blocklist of known-bad patterns.
 """
 
+import errno
 import logging
+import os
 import re
+import stat
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -119,3 +122,75 @@ def sanitize_error_message(error: Exception) -> str:
         error_str = error_str[:197] + "..."
 
     return error_str
+
+
+MAX_IMPORT_BYTES = 256 * 1024
+
+
+def read_import_source(source: str, root: Path,
+                       max_bytes: int = MAX_IMPORT_BYTES) -> tuple[str, str]:
+    """Read a regular file of at most ``max_bytes`` inside ``root``.
+
+    A relative ``source`` is taken relative to ``root``. Symlinks are resolved
+    before the containment check, so a link inside ``root`` that points
+    outside it is refused like a ``..`` path. The file is then opened one
+    component at a time from ``root`` without following symlinks, and its
+    type and size are checked on the open descriptor, so swapping a path
+    component for a link, or the file for a FIFO or a larger file, between
+    the check and the read is refused rather than followed.
+
+    Returns:
+        The file's name and its UTF-8 text.
+
+    Raises:
+        PathTraversalError: If the file is outside ``root``, or its path
+            changed into a link while it was being opened.
+        InvalidInputError: If it is missing, not a regular file, too large,
+            or not UTF-8 text.
+    """
+    base = root.resolve()
+    candidate = (base / Path(source).expanduser()).resolve()
+    if not candidate.is_relative_to(base):
+        raise PathTraversalError(
+            "source_path is outside the import root; set PANMIND_IMPORT_ROOT "
+            "or start the server in the directory that holds the file")
+    parts = candidate.relative_to(base).parts
+    if not parts:
+        raise InvalidInputError("source_path names the import root, not a file")
+    nofollow = os.O_NOFOLLOW | os.O_CLOEXEC
+    try:
+        fd = os.open(base, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+        try:
+            for part in parts[:-1]:
+                next_fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | nofollow,
+                                  dir_fd=fd)
+                os.close(fd)
+                fd = next_fd
+            file_fd = os.open(parts[-1], os.O_RDONLY | os.O_NONBLOCK | nofollow,
+                              dir_fd=fd)
+        finally:
+            os.close(fd)
+    except FileNotFoundError:
+        raise InvalidInputError(
+            f"no file at source_path {source!r} in the import root") from None
+    except OSError as exc:
+        if exc.errno in (errno.ELOOP, errno.ENOTDIR):
+            raise PathTraversalError(
+                "source_path changed while it was being opened") from None
+        raise InvalidInputError(f"cannot open source_path {source!r}") from None
+    with os.fdopen(file_fd, "rb") as handle:
+        info = os.fstat(handle.fileno())
+        if not stat.S_ISREG(info.st_mode):
+            raise InvalidInputError(
+                f"source_path {source!r} is not a regular file")
+        if info.st_size > max_bytes:
+            raise InvalidInputError(f"source_path is {info.st_size} bytes; "
+                                    f"the import limit is {max_bytes} bytes")
+        data = handle.read(max_bytes + 1)
+    if len(data) > max_bytes:
+        raise InvalidInputError(
+            f"source_path is over the import limit of {max_bytes} bytes")
+    try:
+        return candidate.name, data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise InvalidInputError(f"source_path {source!r} is not UTF-8 text") from None

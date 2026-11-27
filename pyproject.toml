@@ -19,17 +19,11 @@ classifiers = [
 ]
 
 dependencies = [
-    # Capped below 3 deliberately: fastmcp 3.x and 4.x are separate major
-    # rewrites, and 2.12 already provides the tool annotations and output
-    # schemas this server publishes.
-    "fastmcp>=2.12,<3",
+    # mcp 2.x serves 2026-07-28 statelessly beside the initialize handshake
+    # and carries the multi-round-trip (input_required) elicitation path.
+    "mcp>=2.3,<3",
     "pyyaml>=6.0.3",
     "click>=8.2",
-    # server.py imports these directly (ToolAnnotations, Field) rather than
-    # only through fastmcp, so they're declared even though fastmcp already
-    # pulls them in transitively. An undeclared direct import breaks the
-    # moment fastmcp's own pin on either of them moves.
-    "mcp>=1.13",
     "pydantic>=2.11",
 ]
 
@@ -71,9 +65,9 @@ select = ["E", "F", "I", "N", "UP", "ANN", "B", "A", "C4", "SIM", "ARG"]
 ignore = ["ANN401"]
 
 [tool.ruff.lint.flake8-bugbear]
-# Field() in a parameter default is how FastMCP tools declare their published
+# Field() in a parameter default is how MCP tools declare their published
 # parameter schema, not a mutable-default bug.
-extend-immutable-calls = ["pydantic.Field", "fastmcp.Context"]
+extend-immutable-calls = ["pydantic.Field"]
 
 [tool.ruff.lint.per-file-ignores]
 # Test functions return None by construction and fixtures are injected by name;

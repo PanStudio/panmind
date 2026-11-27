@@ -14,7 +14,6 @@ declared profile, and they drive the per-dimension cooldown.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import logging
 import math
@@ -26,7 +25,7 @@ from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal
 
-from .atomic_ops import atomic_write_text
+from .atomic_ops import atomic_write_text, flock
 from .security import persona_path, validate_persona_name
 from .taxonomy import BEHAVIORAL_TAXONOMY
 
@@ -154,12 +153,8 @@ class TurnObservation:
 def _file_lock(path: Path) -> Iterator[None]:
     """Serialize writers across processes (Stop and SessionEnd hooks can overlap)."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.with_name(path.name + ".lock").open("a") as lock:
-        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
-        try:
-            yield
-        finally:
-            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+    with flock(path.with_name(path.name + ".lock")):
+        yield
 
 
 class ObservationStore:

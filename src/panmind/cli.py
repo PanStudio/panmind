@@ -24,7 +24,8 @@ from .service import PanMindService
 logger = logging.getLogger(__name__)
 
 def _default_panmind_dir() -> Path:
-    return Path(os.getenv("PANMIND_DIR", str(Path.home() / ".panmind")))
+    # An empty PANMIND_DIR (the .mcp.json default) means unset.
+    return Path(os.getenv("PANMIND_DIR") or Path.home() / ".panmind")
 
 
 def panmind_dir_option[F: Callable[..., Any]](func: F) -> F:
@@ -79,7 +80,7 @@ async def _run_server(panmind_dir: Path) -> None:
     from .server import create_server
 
     server = await create_server(panmind_dir)
-    await server.run_async()
+    await server.run_stdio_async()
 
 
 @main.command("status")
@@ -276,8 +277,9 @@ def init_command(persona: str | None, home: Path | None, project_dir: Path | Non
 def import_command(path: Path, persona: str | None, fmt: str,
                    panmind_dir: Path | None) -> None:
     """Import a personality file into PanMind behavioral distributions."""
+    service = _service(panmind_dir)
     try:
-        result = _service(panmind_dir).import_profile(path, persona, fmt)
+        result = service.import_profile(path, persona, fmt)
     except (ValueError, SecurityError) as e:
         raise click.ClickException(f"Import failed: {e}") from e
     click.echo(f"Imported from: {path}")
@@ -285,7 +287,7 @@ def import_command(path: Path, persona: str | None, fmt: str,
     for dim, summary in result["distributions"].items():
         click.echo(f"  {dim:<24} {summary['dominant']} "
                    f"(entropy {summary['entropy']:.2f})")
-    click.echo(f"Saved to: {result['saved_to']}")
+    click.echo(f"Saved to: {service.panmind_dir / result['saved_to']}")
 
 
 if __name__ == "__main__":
